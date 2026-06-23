@@ -1,0 +1,12 @@
+If:
+    PathMatch: .*
+
+CompileFlags:
+	Add: [-xc++, -Wall]
+ 	Remove: [-W*]
+  	Compiler: clang++	
+	CompilationDatabase: "build_release"
+
+Diagnostics:
+	MissingIncludes: Strict
+  	UnusedIncludes: None

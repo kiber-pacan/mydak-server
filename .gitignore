@@ -1,0 +1,15 @@
+build_debug/
+build_release/
+CMakeFiles/
+_deps/
+cmake_install.cmake
+CMakeCache.txt
+compile_commands.json
+Makefile
+cpm-package-lock.cmake
+*~
+*.~undo-tree~
+#*#
+.cache/
+.*~
+.*.~undo-tree~
