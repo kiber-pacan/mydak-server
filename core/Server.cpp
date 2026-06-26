@@ -1,14 +1,17 @@
+#include <asio/detail/chrono.hpp>
+#include <asio/use_awaitable.hpp>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <asio.hpp>
+#include <optional>
+#include <source_location>
 #include "Server.hpp"
 #include "Connection.hpp"
 
 
-
 void Server::startAcceptingConnections() {
-	auto new_connection = std::make_shared<Connection>(Connection(io, shared_from_this()));
+	auto new_connection = std::make_shared<Connection>(io, shared_from_this());
 	
 	// Wait until server recieves connection 
 	acceptor.async_accept(
@@ -22,24 +25,12 @@ void Server::startAcceptingConnections() {
 	);
 }
 
-void Server::addClient(std::array<char, 64> publicKey, std::shared_ptr<asio::ip::tcp::socket> socket) {
-	// TODO MAKE DEGENERATEPROOF
-	clients[publicKey] = socket;
-	//for (auto &[publicKey, socket] : clients) {
-	//	std::cout << std::format("{} : {}", publicKey, socket.to_string()) << std::endl;
-	//}
-}
-
-std::shared_ptr<asio::ip::tcp::socket> Server::getClient(std::array<char, 64> publicKey) {
-	return clients[publicKey];
-}
-
 void Server::handleConnection(std::shared_ptr<Connection> new_connection, const std::error_code& error) {
 	if (!error) {
 		// Spawn coroutine and it send on a free voyage.
 		asio::co_spawn(
 			io,
-			new_connection->recievePublicKey(),
+			new_connection->start(),
 			[](std::exception_ptr e) {
 				if (e) {
 					std::cout << "Exception while handling accept!" << std::endl;
@@ -50,4 +41,102 @@ void Server::handleConnection(std::shared_ptr<Connection> new_connection, const 
 	
 	// Start accepting connections again.
 	startAcceptingConnections();
+}
+
+
+
+size_t Server::addClient(
+	std::array<char, 64> sender,
+	const std::shared_ptr<asio::ip::tcp::socket>& socket,
+	const std::shared_ptr<Signal>& signal_channel
+) {
+	// TODO MAKE DEGENERATEPROOF
+	clients[sender] = clientCounter;
+
+	sockets.emplace_back(socket);
+	messages.emplace_back(std::queue<std::vector<char>>{});
+	signals.emplace_back(signal_channel);
+	
+	//create coroutine for socket!!!! 
+	asio::co_spawn(
+		io,
+		socketCoroutine(signal_channel, clientCounter),
+		[](std::exception_ptr e) {
+			if (e) {
+				std::cout << "Exception while creating socket coroutine!" << std::endl;
+			}
+		}
+	);
+	
+	clientCounter++;
+	return clientCounter - 1;
+}
+
+std::optional<size_t> Server::getClientIndex(std::array<char, 64> client) {
+	auto it = clients.find(client);
+	
+	if (it == clients.end()) {
+		std::cout << "No client with that index!" << std::endl;
+		return std::nullopt;
+	}
+	
+	return clients[client];
+}
+
+
+void Server::addMessageToQueue(
+	size_t senderIndex,
+	size_t recipientIndex,
+	std::vector<char> message
+) {
+	asio::co_spawn(
+		io,
+		addMessageToQueueAsync(senderIndex, recipientIndex, message),
+		[](std::exception_ptr e) {
+			if (e) {
+				std::cout << "Exception while creating socket coroutine!" << std::endl;
+			}
+		}
+	);
+}
+
+
+
+asio::awaitable<void> Server::addMessageToQueueAsync(
+	size_t senderIndex,
+	size_t recipientIndex,
+	std::vector<char> message
+) {
+	auto& signal_channel = signals[recipientIndex]; 
+
+	// Add messages to recipient
+	messages[recipientIndex].emplace(std::move(message));
+	
+	asio::error_code e;
+	// Update recipient socket coroutine
+	co_await signal_channel->async_send(e, asio::use_awaitable);
+
+	co_return;
+}
+
+
+asio::awaitable<void> Server::socketCoroutine(const std::shared_ptr<Signal>& signal_channel, size_t clientIndex) {
+	try {
+		while (true) {
+			co_await signal_channel->async_receive(asio::use_awaitable);
+
+			// Get client messages and socket
+			auto& queue = messages[clientIndex];
+			auto& socket = sockets[clientIndex];
+			
+			// Iterate through messages what recipient have
+			for (; !queue.empty(); queue.pop()) {
+				co_await asio::async_write(*socket, asio::buffer(queue.front()), asio::use_awaitable);
+			}
+			
+		}
+	} catch (const std::exception& e) {
+		std::cout << e.what() << std::endl;
+		co_return;
+	}
 }
