@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <ctime>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <asio.hpp>
 #include <source_location>
@@ -28,6 +29,8 @@ std::optional<size_t> Connection::getRecipientIndex(std::array<char, 64> recipie
 		std::optional<size_t> indexOpt = server->getClientIndex(recipient);
 		if (indexOpt.has_value()) {
 			index = indexOpt.value();
+		} else {
+			return std::nullopt;
 		}
 		
 		clients_cache[recipient] = index;
@@ -81,13 +84,16 @@ asio::awaitable<void> Connection::start() {
 			std::array<char, 1 + 4 + 64> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
-			if (greetings[0] != '\x67') continue; // Greetings type is 67.
+			std::cout << std::string(greetings.data(), greetings.size()) << std::endl;
+			
+			if (greetings[0] != '\x67') break;
 
+			
 			// MESSAGE SIZE
 			uint32_t message_size;
 			std::memcpy(&message_size, std::span(greetings).subspan(1,4).data(), 4);
 
-			if (message_size < 1) continue;
+			if (message_size < 1) break;
 
 
 			// RECIPIENT
@@ -96,11 +102,12 @@ asio::awaitable<void> Connection::start() {
 			
 			// MESSAGE
 			std::vector<char> message{};
+			message.resize(message_size);
 			co_await asio::async_read(*socket.get(), asio::buffer(message, message_size), asio::use_awaitable);
-			
-			
+
+			std::cout << "Greeting: size=" << message_size << " recipient=" << std::string(recipient.data(), 64) << std::endl;			
 			std::optional<size_t> recipientIndexOpt = getRecipientIndex(recipient);
-			if (!recipientIndexOpt.has_value()) continue;
+			if (!recipientIndexOpt.has_value()) break;
 			
 			
 			server->addMessageToQueue(clientIndex, recipientIndexOpt.value(), message);

@@ -76,11 +76,11 @@ std::optional<size_t> Server::getClientIndex(std::array<char, 64> client) {
 	auto it = clients.find(client);
 	
 	if (it == clients.end()) {
-		std::cout << "No client with that index!" << std::endl;
+		std::cout << "No client!" << std::endl;
 		return std::nullopt;
 	}
 	
-	return clients[client];
+	return it->second;
 }
 
 
