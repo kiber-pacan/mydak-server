@@ -15,7 +15,7 @@ void Server::startAcceptingConnections() {
 	
 	// Wait until server recieves connection 
 	acceptor.async_accept(
-		*new_connection->getSocket(),
+		*new_connection->getSocket().get(),
 		std::bind(
 			&Server::handleConnection,
 			this,
@@ -133,7 +133,7 @@ asio::awaitable<void> Server::socketCoroutine(const std::shared_ptr<Signal>& sig
 			for (; !queue.empty(); queue.pop()) {
 				co_await asio::async_write(*socket, asio::buffer(queue.front()), asio::use_awaitable);
 
-				// Ending symbol
+				// EN
 				char end = 0x76;
 				co_await asio::async_write(*socket, asio::buffer(&end, 1), asio::use_awaitable);
 			}

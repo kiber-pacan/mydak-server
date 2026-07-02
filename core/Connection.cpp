@@ -72,7 +72,7 @@ asio::awaitable<void> Connection::start() {
 		asio::ip::address ip = socket->remote_endpoint().address();
 			
 		// Wow, we got the public key (aka login) from some degenerate. With which we can receive messages from other people.
-		std::cout << std::format("Received {} key from {}!", std::string(sender.data(), 64), ip.to_string()) << std::endl;
+		std::cout << std::format("{} connected! key: {}", ip.to_string(), std::string(sender.data(), 64)) << std::endl;
 			
 		// Add that boy to the map
 		clientIndex = server.get()->addClient(sender, socket, signal_channel);
@@ -84,8 +84,6 @@ asio::awaitable<void> Connection::start() {
 			std::array<char, 1 + 4 + 64> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
-			std::cout << std::string(greetings.data(), greetings.size()) << std::endl;
-			
 			if (greetings[0] != '\x67') break;
 
 			
@@ -104,11 +102,9 @@ asio::awaitable<void> Connection::start() {
 			std::vector<char> message{};
 			message.resize(message_size);
 			co_await asio::async_read(*socket.get(), asio::buffer(message, message_size), asio::use_awaitable);
-
-			std::cout << "Greeting: size=" << message_size << " recipient=" << std::string(recipient.data(), 64) << std::endl;			
+			
 			std::optional<size_t> recipientIndexOpt = getRecipientIndex(recipient);
 			if (!recipientIndexOpt.has_value()) break;
-			
 			
 			server->addMessageToQueue(clientIndex, recipientIndexOpt.value(), message);
 		}
