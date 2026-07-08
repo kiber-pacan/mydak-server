@@ -6,18 +6,19 @@
 #include <asio.hpp>
 #include <optional>
 #include <source_location>
-#include "Server.hpp"
-#include "Connection.hpp"
+#include "caca++.h"
 
+#include "server.hpp"
+#include "connection.hpp"
 
-void Server::startAcceptingConnections() {
-	auto new_connection = std::make_shared<Connection>(io, shared_from_this());
+void mydak::server::startAcceptingConnections() {
+	auto new_connection = std::make_shared<mydak::connection>(io, shared_from_this());
 	
 	// Wait until server recieves connection 
 	acceptor.async_accept(
 		*new_connection->getSocket(),
 		std::bind(
-			&Server::handleConnection,
+			&server::handleConnection,
 			this,
 			new_connection,
 			asio::placeholders::error
@@ -25,7 +26,7 @@ void Server::startAcceptingConnections() {
 	);
 }
 
-void Server::handleConnection(std::shared_ptr<Connection> new_connection, const std::error_code& error) {
+void mydak::server::handleConnection(std::shared_ptr<mydak::connection> new_connection, const std::error_code& error) {
 	if (!error) {
 		// Spawn coroutine and it send on a free voyage.
 		asio::co_spawn(
@@ -45,10 +46,10 @@ void Server::handleConnection(std::shared_ptr<Connection> new_connection, const 
 
 
 
-size_t Server::addClient(
-	std::array<char, 64> sender,
+size_t mydak::server::addClient(
+	std::array<char, mydak::proto::PUBLIC_KEY_L> sender,
 	const std::shared_ptr<asio::ip::tcp::socket>& socket,
-	const std::shared_ptr<Signal>& signal_channel
+	const std::shared_ptr<receive_signal>& signal_channel
 ) {
 	// TODO MAKE DEGENERATEPROOF
 	clients[sender] = clientCounter;
@@ -72,7 +73,7 @@ size_t Server::addClient(
 	return clientCounter - 1;
 }
 
-std::optional<size_t> Server::getClientIndex(std::array<char, 64> client) {
+std::optional<size_t> mydak::server::getClientIndex(std::array<char, 64> client) {
 	auto it = clients.find(client);
 	
 	if (it == clients.end()) {
@@ -84,7 +85,7 @@ std::optional<size_t> Server::getClientIndex(std::array<char, 64> client) {
 }
 
 
-void Server::addMessageToQueue(
+void mydak::server::addMessageToQueue(
 	size_t senderIndex,
 	size_t recipientIndex,
 	std::vector<char> message
@@ -102,7 +103,7 @@ void Server::addMessageToQueue(
 
 
 
-asio::awaitable<void> Server::addMessageToQueueAsync(
+asio::awaitable<void> mydak::server::addMessageToQueueAsync(
 	size_t senderIndex,
 	size_t recipientIndex,
 	std::vector<char> message
@@ -120,7 +121,7 @@ asio::awaitable<void> Server::addMessageToQueueAsync(
 }
 
 
-asio::awaitable<void> Server::socketCoroutine(const std::shared_ptr<Signal>& signal_channel, size_t clientIndex) {
+asio::awaitable<void> mydak::server::socketCoroutine(const std::shared_ptr<mydak::receive_signal>& signal_channel, size_t clientIndex) {
 	try {
 		while (true) {
 			co_await signal_channel->async_receive(asio::use_awaitable);
@@ -130,14 +131,8 @@ asio::awaitable<void> Server::socketCoroutine(const std::shared_ptr<Signal>& sig
 			auto& socket = sockets[clientIndex];
 			
 			// Iterate through messages what recipient have
-			for (; !queue.empty(); queue.pop()) {
+			for (; !queue.empty(); queue.pop())
 				co_await asio::async_write(*socket, asio::buffer(queue.front()), asio::use_awaitable);
-
-				// Ending symbol
-				char end = 0x76;
-				co_await asio::async_write(*socket, asio::buffer(&end, 1), asio::use_awaitable);
-			}
-			
 		}
 	} catch (const std::exception& e) {
 		std::cout << e.what() << std::endl;

@@ -9,19 +9,19 @@
 #include <string>
 #include <asio.hpp>
 #include <source_location>
-#include "Connection.hpp"
-#include "Server.hpp"
 #include <array>
 
 
-void Connection::handle_write(const std::error_code& error, size_t bytes_transferred) {
-}
+#include "connection.hpp"
+#include "server.hpp"
+#include "proto.hpp"
+
    		
-std::shared_ptr<asio::ip::tcp::socket> Connection::getSocket() {
+std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-std::optional<size_t> Connection::getRecipientIndex(std::array<char, 64> recipient) {
+std::optional<size_t> mydak::connection::getRecipientIndex(std::array<char, mydak::proto::PUBLIC_KEY_L> recipient) {
 	size_t index;
 	auto it = clients_cache.find(recipient);
 	
@@ -41,17 +41,17 @@ std::optional<size_t> Connection::getRecipientIndex(std::array<char, 64> recipie
 	return index;
 }
 
-asio::awaitable<void> Connection::start() {
+asio::awaitable<void> mydak::connection::start() {
 	// Voodoo type shi to keep alive tcp_connection after it's poiner death
 	auto self = shared_from_this();
 
 	asio::socket_base::keep_alive option(true);
 	socket->set_option(option);
 
-	signal_channel = std::make_shared<Signal>(socket->get_executor());
+	signal_channel = std::make_shared<receive_signal>(socket->get_executor());
 	
 	try {
-		std::array<char, 64> sender{};
+		std::array<char, mydak::proto::PUBLIC_KEY_L> sender{};
 		
 		// Another fucking bullshit.
 		//
@@ -75,38 +75,59 @@ asio::awaitable<void> Connection::start() {
 		std::cout << std::format("{} connected! key: {}", ip.to_string(), std::string(sender.data(), 64)) << std::endl;
 			
 		// Add that boy to the map
-		clientIndex = server.get()->addClient(sender, socket, signal_channel);
+		clientIndex = server->addClient(sender, socket, signal_channel);
 
 
 		// Recieve messages
 		while (true) {
 			// GREETINGS
-			std::array<char, 1 + 4 + 64> greetings{};
+			std::array<char, mydak::proto::GREETINGS_PREFIX_L + mydak::proto::MESSAGE_SIZE_L + mydak::proto::PUBLIC_KEY_L> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
-			if (greetings[0] != '\x67') break;
+			if (greetings[0] != mydak::proto::GREETINGS_PREFIX) {
+				std::cout << "greetings[0] != '\x67'" << std::endl;
+				break;
+			}
 
 			
 			// MESSAGE SIZE
 			uint32_t message_size;
 			std::memcpy(&message_size, std::span(greetings).subspan(1,4).data(), 4);
 
-			if (message_size < 1) break;
-
+			if (message_size < 1) {
+				std::cout << "Message size < 1" << std::endl;
+				break;
+			}
 
 			// RECIPIENT
-			std::array<char, 64> recipient{};
+			std::array<char, mydak::proto::PUBLIC_KEY_L> recipient{};
 			std::ranges::copy(std::span(greetings).subspan(5, 64), recipient.begin());
 			
 			// MESSAGE
 			std::vector<char> message{};
 			message.resize(message_size);
 			co_await asio::async_read(*socket.get(), asio::buffer(message, message_size), asio::use_awaitable);
+
+			
+			std::array<char, mydak::proto::MESSAGE_SIZE_L> size =
+				std::bit_cast<std::array<char, mydak::proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size));
+
+			size_t message_with_public_key_size = message_size + mydak::proto::PUBLIC_KEY_L + mydak::proto::MESSAGE_SIZE_L;
+			std::vector<char> message_with_public_key{};
+			message_with_public_key.reserve(message_with_public_key_size);
+			message_with_public_key.append_range(sender);
+			message_with_public_key.append_range(size);
+			message_with_public_key.append_range(message);
+
+			//std::cout << std::string(message_with_public_key.data(), message_with_public_key.size()) << std::endl;
 			
 			std::optional<size_t> recipientIndexOpt = getRecipientIndex(recipient);
-			if (!recipientIndexOpt.has_value()) break;
+			if (!recipientIndexOpt.has_value()) {
+				std::cout << "No recipient" << std::endl;
+				break;
+			}
 			
-			server->addMessageToQueue(clientIndex, recipientIndexOpt.value(), message);
+			server->addMessageToQueue(clientIndex, recipientIndexOpt.value(), message_with_public_key);
 		}
 	}
 	catch (std::exception& e) {

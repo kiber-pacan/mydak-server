@@ -5,13 +5,13 @@
 #include <iostream>
 #include <asio.hpp>
 
-#include "Server.hpp"
+#include "server.hpp"
 #include <source_location>
 
 int main() {
 	try {
 		asio::io_context io;
-		std::shared_ptr<Server> server = std::make_shared<Server>(io);
+		std::shared_ptr<mydak::server> server = std::make_shared<mydak::server>(io);
 		server.get()->startAcceptingConnections();
 		io.run();
 	}
