@@ -40,8 +40,10 @@ void mydak::server::start_accepting_connections() {
 }
 
 void mydak::server::handle_connection(std::shared_ptr<mydak::connection> new_connection, const std::error_code& error) {
+	std::cout << "new connection" << std::endl;
+
 	if (!error) {
-		// Spawn coroutine and it send on a free voyage.
+		// Spawn coroutine and send it on a free voyage.
 		asio::co_spawn(
 			io,
 			new_connection->start(),

@@ -16,7 +16,7 @@ namespace mydak {
 		}
 
 		template <typename... Args>
-		size_t emplace_back(Args&&... args) {
+		size_t emplacInitial commite_back(Args&&... args) {
 			if (!empty_slots.empty()) {
 				const auto& index = empty_slots.front();
 				empty_slots.pop();
@@ -29,13 +29,13 @@ namespace mydak {
 				// For more efficiency
 				// Just emplace into firts empty index in queue
 				clients[index].set_value(std::forward<Args>(args)...);
-				log_debug(std::format("Added at index: {} (old)", index));
+				log_debug(std::format("Added client at index: {} (at old slot)", index));
 				
 				return index;
 			}
 
 			clients.emplace_back(T(std::forward<Args>(args)...));
-			log_debug(std::format("Added at index: {} (new)", global_index));
+			log_debug(std::format("Added at index: {} (at new slot)", global_index));
 				
 			return global_index++;
 		}
@@ -44,7 +44,7 @@ namespace mydak {
 			clients[index].clear();
 			empty_slots.emplace(index);
 			
-			log_debug(std::format("Popped at index: {}", index));
+			log_debug(std::format("Popped client at index: {}", index));
 		}
 		
 

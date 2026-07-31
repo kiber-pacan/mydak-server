@@ -192,6 +192,7 @@ boost::asio::awaitable<void> mydak::connection::start() {
 	}
 	catch (std::exception& e) {
 		end_connection();
+		co_return;
 	}
 	
 	end_connection();

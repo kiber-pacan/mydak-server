@@ -21,11 +21,9 @@ constexpr std::string_view SERVER_STARTED =
 	"The server started!";
 
 int main() {
-	asio::io_context io{};
-	
 	try {
-		boost::asio::io_context io;
-		std::shared_ptr<mydak::server> server = std::make_shared<mydak::server>(io);
+		asio::io_context io;
+		const auto server = std::make_shared<mydak::server>(io);
 		server.get()->start_accepting_connections();
 		mydak::log_debug(SERVER_STARTED);
 		io.run();
