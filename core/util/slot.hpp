@@ -46,7 +46,6 @@ namespace mydak {
 			
 			this->object.emplace(std::forward<Args>(args)...);
 			generation++;
-			mydak::log_debug(std::format("Set value, {}", std::to_string(empty())));
 		}
 		
 		private:
