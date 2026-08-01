@@ -13,31 +13,37 @@ include(FetchContent)
 set(EXECUTABLE_NAME ${PROJECT_NAME})
 
 add_executable(${EXECUTABLE_NAME}
-  core/main.cpp
-  core/proto.hpp
-  
-  core/connection.cpp
-  core/connection.hpp
-  
-  core/server.cpp
-  core/server.hpp
+        core/main.cpp
+        core/util/proto.hpp
 
-  core/client/client.cpp
-  core/client/client.hpp
-  
-  core/util/optional_ref.hpp
-  core/util/slot.hpp
-  core/util/slot_vector.hpp
+        core/main/connection.cpp
+        core/main/connection.hpp
 
-  core/util/logger.hpp
-  core/util/logger.cpp
+        core/main/server.cpp
+        core/main/server.hpp
+
+        core/main/client.cpp
+        core/main/client.hpp
+  
+        core/util/optional_ref.hpp
+        core/util/slot.hpp
+        core/util/slot_vector.hpp
+
+        core/util/logger.hpp
+        core/util/logger.cpp
+        core/database/database.cpp
+        core/database/database.hpp
+        core/parameters/parameters.hpp
+        core/parameters/parameters.cpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/core/
-  ${CMAKE_CURRENT_SOURCE_DIR}/core/util
-  ${CMAKE_CURRENT_SOURCE_DIR}/core/client
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/database
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/main
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/parameters
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/util
 )
 
 
@@ -72,3 +78,4 @@ target_link_libraries(${EXECUTABLE_NAME} PUBLIC
 )
 
 target_compile_definitions(${EXECUTABLE_NAME} PUBLIC SDL_MAIN_USE_CALLBACKS)
+
