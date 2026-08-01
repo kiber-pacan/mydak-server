@@ -1,5 +1,5 @@
-#ifndef MYDAK_WEBSOCKET_UTIL_LOGGER_HPP
-#define MYDAK_WEBSOCKET_UTIL_LOGGER_HPP
+#ifndef MYDAK_BACKEND_CORE_UTIL_LOGGER_HPP
+#define MYDAK_BACKEND_CORE_UTIL_LOGGER_HPP
 
 
 #include <source_location>
@@ -14,28 +14,24 @@ inline constexpr bool DEBUG = false;
 #endif
 
 
-namespace mydak {	
+namespace mydak::logger {
 	void log(
-		std::string_view message,
-		std::source_location source = std::source_location::current()
+		std::string_view message
 	);
 
 	void log_error(
-		std::string_view message,
-		std::source_location source = std::source_location::current()
+		std::string_view message
 	);
 
 	void log_debug(
-		std::string_view message,
-		std::source_location source = std::source_location::current()
-	);
-	
-	void log_debug_error(
-		std::string_view message,
-		std::source_location source = std::source_location::current()
+		std::string_view message
 	);
 
-	
+	void log_debug_error(
+		std::string_view message
+	);
+
+
 
 	void log_func(
 		std::string_view message,
@@ -51,10 +47,19 @@ namespace mydak {
 		std::string_view message,
 		std::source_location source = std::source_location::current()
 	);
-	
+
 	void log_func_debug_error(
 		std::string_view message,
 		std::source_location source = std::source_location::current()
 	);
+
+	void exception(
+		const std::string&  message
+	);
+
+	void exception_func(
+		const std::string&  message,
+		std::source_location source = std::source_location::current()
+	);
 }
-#endif  // MYDAK_WEBSOCKET_UTIL_LOGGER_HPP
+#endif  // MYDAK_BACKEND_CORE_UTIL_LOGGER_HPP
