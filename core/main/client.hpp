@@ -40,7 +40,7 @@ namespace mydak {
 		
 		void add_message(
 			const std::vector<char>& message
-		);
+		) const;
 		
 		void remove_client();
 

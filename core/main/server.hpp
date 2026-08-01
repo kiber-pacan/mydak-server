@@ -10,7 +10,7 @@
 #include <optional>
 #include <boost/asio/awaitable.hpp>
 
-#include "proto.hpp"
+#include "util/proto.hpp"
 #include "optional_ref.hpp"
 #include "slot.hpp"
 #include "client.hpp"
@@ -18,29 +18,29 @@
 
 namespace mydak {struct connection;}
 namespace mydak {
-	using receive_signal = boost::asio::experimental::channel<void(boost::system::error_code)>;
+	using receive_signal = asio::experimental::channel<void(boost::system::error_code)>;
 
 	class server : public std::enable_shared_from_this<server> {
 	public:
-		server(boost::asio::io_context& io) : io(io), acceptor(io, boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 8888)) {}
+		explicit server(asio::io_context& io) : io(io), acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)) {}
 
 	
 		void start_accepting_connections();
 
 		// Returns index of client
 		[[nodiscard]] size_t add_client(
-			std::array<char, mydak::proto::PUBLIC_KEY_L> client,
+			std::array<char, proto::PUBLIC_KEY_L> client,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
 		);
 
-		mydak::optional_ref<mydak::slot<mydak::client>> get_client(
+		optional_ref<slot<client>> get_client(
 			const size_t& index
 		);
 
 		void remove_client(
 			size_t index,
-			std::array<char, mydak::proto::PUBLIC_KEY_L> public_key
+			std::array<char, proto::PUBLIC_KEY_L> public_key
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
@@ -59,23 +59,23 @@ namespace mydak {
 		);
 
 		
-		std::pair<size_t, size_t> get_client_index(std::array<char, mydak::proto::PUBLIC_KEY_L> public_key);
+		std::pair<size_t, size_t> get_client_index(std::array<char, proto::PUBLIC_KEY_L> public_key);
 	private:
 		//mydak::clients clients{};		
-		mydak::slot_vector<mydak::client> clients_slot_vector{};
-		std::map<std::array<char, mydak::proto::PUBLIC_KEY_L>, size_t> client_indices{};
+		slot_vector<client> clients_slot_vector{};
+		std::map<std::array<char, proto::PUBLIC_KEY_L>, size_t> client_indices{};
 
 		
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
 		
 		void handle_connection(
-			std::shared_ptr<mydak::connection> new_connection,
+			std::shared_ptr<connection> new_connection,
 			const std::error_code& error
 		);
 
 	
-		boost::asio::awaitable<void> socket_coroutine(
+		asio::awaitable<void> socket_coroutine(
 			const std::shared_ptr<receive_signal>& signal_channel,
 			size_t clientIndex
 		);

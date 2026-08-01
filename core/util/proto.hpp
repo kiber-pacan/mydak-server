@@ -1,7 +1,5 @@
-#ifndef MYDAK_WEBSOCKET_CORE_PROTO_HPP
-#define MYDAK_WEBSOCKET_CORE_PROTO_HPP
-
-#include <cstddef>
+#ifndef MYDAK_BACKEND_CORE_PROTO_HPP
+#define MYDAK_BACKEND_CORE_PROTO_HPP
 
 namespace mydak {
 	// Mydak protocol
@@ -14,4 +12,4 @@ namespace mydak {
 		static constexpr char GREETINGS_PREFIX_L = 1;
 	};
 }
-#endif  // MYDAK_WEBSOCKET_CORE_PROTO_HPP
+#endif  // MYDAK_BACKEND_CORE_PROTO_HPP

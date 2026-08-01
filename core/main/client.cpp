@@ -33,7 +33,7 @@ void mydak::client::add_client_data(
 	bool null_data = data.socket == nullptr && data.signal_channel == nullptr && data.messages == nullptr;
 	if (!active) {
 		if (!null_data) {
-			mydak::log_debug_error(DATA_ADD_NON_NULL_DATA_INACTIVE);
+			logger::log_debug_error(DATA_ADD_NON_NULL_DATA_INACTIVE);
 		}
 		
 		data.socket = socket;
@@ -43,18 +43,18 @@ void mydak::client::add_client_data(
 		active = true;
 		
 	} else {
-		mydak::log_debug_error(DATA_ADD_ACTIVE_CLIENT);
+		logger::log_debug_error(DATA_ADD_ACTIVE_CLIENT);
 	}
 }
 
-void mydak::client::add_message(const std::vector<char>& message) {
+void mydak::client::add_message(const std::vector<char>& message) const {
 	if (data.messages != nullptr && active)
 		data.messages->emplace(message);
 			
 	if (!active) {
-		mydak::log_debug_error(MESSAGE_ADD_INACTIVE_CLIENT);
+		logger::log_debug_error(MESSAGE_ADD_INACTIVE_CLIENT);
 	} else if (data.messages == nullptr) {
-		mydak::log_debug_error(MESSAGE_ADD_NULL_QUEUE);
+		logger::log_debug_error(MESSAGE_ADD_NULL_QUEUE);
 	}
 }
 		

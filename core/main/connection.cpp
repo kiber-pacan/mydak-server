@@ -14,7 +14,7 @@
 
 #include "connection.hpp"
 #include "server.hpp"
-#include "proto.hpp"
+#include "util/proto.hpp"
 #include "logger.hpp"
 
 constexpr std::string_view FUCKED_UP_GREETNGS_SYMBOL =
@@ -36,16 +36,16 @@ constexpr std::string_view BAD_SIGNAL =
 
 
 
-std::shared_ptr<boost::asio::ip::tcp::socket> mydak::connection::getSocket() {
+std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-std::optional<std::pair<size_t, size_t>> mydak::connection::get_recipient_index(std::array<char, mydak::proto::PUBLIC_KEY_L> recipient) {
+std::optional<std::pair<size_t, size_t>> mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
 	std::pair<size_t, size_t> pair;
 	auto it = clients_cache.find(recipient);
 	
 	if (it == clients_cache.end()) {
-		std::optional<std::pair<size_t, size_t>> index_optional = server->get_client_index(recipient);
+		std::optional index_optional = server->get_client_index(recipient);
 		if (index_optional.has_value() and index_optional->first != -1) {
 			pair = index_optional.value();
 		} else {
@@ -60,17 +60,17 @@ std::optional<std::pair<size_t, size_t>> mydak::connection::get_recipient_index(
 	return pair;
 }
 
-boost::asio::awaitable<void> mydak::connection::start() {
+asio::awaitable<void> mydak::connection::start() {
 	// Voodoo type shi to keep coroutine alive after it's poiner death
 	auto self = shared_from_this();
 
-	//boost::asio::socket_base::keep_alive option(true);
+	//asio::socket_base::keep_alive option(true);
 	//socket->set_option(option);
 
 	signal_channel = std::make_shared<receive_signal>(socket->get_executor());
 	
 	try {
-		std::array<char, mydak::proto::PUBLIC_KEY_L> public_key{};
+		std::array<char, proto::PUBLIC_KEY_L> public_key{};
 		
 		// Another fucking bullshit.
 		//
@@ -79,7 +79,7 @@ boost::asio::awaitable<void> mydak::connection::start() {
 		
 		
 		// Still bullshit, but a little bit prettier.
-		boost::asio::awaitable<size_t> bytes_awaitable = boost::asio::async_read(*socket.get(), boost::asio::buffer(public_key), boost::asio::use_awaitable);
+		asio::awaitable<size_t> bytes_awaitable = asio::async_read(*socket.get(), asio::buffer(public_key), asio::use_awaitable);
 		co_await std::move(bytes_awaitable);
 			
 
@@ -88,10 +88,10 @@ boost::asio::awaitable<void> mydak::connection::start() {
 		// size_t bytes = co_await asio::async_read(socket, asio::buffer(key), asio::use_awaitable);
 			
 			
-		boost::asio::ip::address ip = socket->remote_endpoint().address();
+		asio::ip::address ip = socket->remote_endpoint().address();
 			
 		// Wow, we got the public key (aka login) from some degenerate. With which we can receive messages from other people.
-		mydak::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
+		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
 		
 		// Add that boy to the map
 		index = server->add_client(public_key, socket, signal_channel);
@@ -100,11 +100,11 @@ boost::asio::awaitable<void> mydak::connection::start() {
 		// Recieve messages
 		while (true) {
 			// GREETINGS
-			std::array<char, mydak::proto::GREETINGS_PREFIX_L + mydak::proto::MESSAGE_SIZE_L + mydak::proto::PUBLIC_KEY_L> greetings{};
-			co_await boost::asio::async_read(*socket.get(), boost::asio::buffer(greetings, greetings.size()), boost::asio::use_awaitable);
+			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::PUBLIC_KEY_L> greetings{};
+			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
-			if (greetings[0] != mydak::proto::GREETINGS_PREFIX) {
-				mydak::log_debug_error(FUCKED_UP_GREETNGS_SYMBOL);
+			if (greetings[0] != proto::GREETINGS_PREFIX) {
+				logger::log_debug_error(FUCKED_UP_GREETNGS_SYMBOL);
 				break;
 			}
 
@@ -117,18 +117,18 @@ boost::asio::awaitable<void> mydak::connection::start() {
 			if constexpr (std::endian::native == std::endian::big) message_size = std::byteswap(message_size);
 
 			if (message_size < 1 || message_size > 512) {
-				mydak::log_debug_error(std::format("{} ({})", FUCKED_UP_MESSAGE_SIZE, message_size));
+				logger::log_debug_error(std::format("{} ({})", FUCKED_UP_MESSAGE_SIZE, message_size));
 				break;
 			}
 
 			// RECIPIENT
-			std::array<char, mydak::proto::PUBLIC_KEY_L> recipient{};
+			std::array<char, proto::PUBLIC_KEY_L> recipient{};
 			std::ranges::copy(std::span(greetings).subspan(5, 64), recipient.begin());
 			
 			// MESSAGE
 			std::vector<char> message{};
 			message.resize(message_size);
-			co_await boost::asio::async_read(*socket.get(), boost::asio::buffer(message, message_size), boost::asio::use_awaitable);
+			co_await asio::async_read(*socket.get(), asio::buffer(message, message_size), asio::use_awaitable);
 
 
 			// Always get little endian
@@ -163,24 +163,24 @@ boost::asio::awaitable<void> mydak::connection::start() {
 			switch (code) {
 				// No client with that index
 			    case 0: {
-					log_debug_error(NO_CLIENT);
+					logger::log_debug_error(NO_CLIENT);
 					break;
 				}
 				// Wrong  generation
 			    case 1: {
-					log_debug_error(EXPIRED_CACHED_CLIENT);
+					logger::log_debug_error(EXPIRED_CACHED_CLIENT);
 					clients_cache.erase(recipient);
 
 					// If we somehow got another expired client
 					if (tries++ >= 1) {
-						log_debug_error(EXPIRED_CACHED_CLIENT_SECOND_TRY);
+						logger::log_debug_error(EXPIRED_CACHED_CLIENT_SECOND_TRY);
 						break;
 					}
 					goto add_message_to_queue; // Evil goto hack to try again without expired cached message
 				}
 				// Signal failure
 			    case 2: {
-					log_debug_error(BAD_SIGNAL);
+					logger::log_debug_error(BAD_SIGNAL);
 					break;
 				}
 				// Success
@@ -200,13 +200,14 @@ boost::asio::awaitable<void> mydak::connection::start() {
 	co_return;
 }
 
-void mydak::connection::end_connection() {
-	mydak::log_debug_error(CONNECTION_ENDED);
+void mydak::connection::end_connection() const {
+	logger::log_debug_error(CONNECTION_ENDED);
 
 	server->remove_client(index, public_key);
 }
 
 // MYSQL SHENANIGANS
 void mydak::connection::delayed_message(std::array<char, mydak::proto::PUBLIC_KEY_L> recipient, std::vector<char> message) {
-	mydak::log_debug_error(NO_CLIENT_WITH_THAT_KEY);
+	logger::log_debug_error(NO_CLIENT_WITH_THAT_KEY);
+
 }

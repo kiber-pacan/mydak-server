@@ -65,18 +65,18 @@ void mydak::server::handle_connection(std::shared_ptr<mydak::connection> new_con
 ) {
 	auto& slot = clients_slot_vector[recipient_index];
 	if (slot.empty()) {
-		mydak::log_debug_error(NO_SLOT_VALUE);
+		logger::log_debug_error(NO_SLOT_VALUE);
 		return 0 ;
 	}
 	if (slot.get_slot_generation() != generation) {
 		// TODO GET THIS IN CONNECTION TO UPDATE CACHE
 		// OR IF NO CONNECTION WITH THAT PUBLIC ID ADD TO THE
 		// NEW CONNECTIONS WATCHLIST
-		mydak::log_debug_error(WRONG_GENERATION);
+		logger::log_debug_error(WRONG_GENERATION);
 		return 1;
 	}
 		
-	mydak::client& client = slot.get_slot_value();
+	client& client = slot.get_slot_value();
 
 	const auto& data = client.get_client_data();
 	auto& signal_channel = data.signal_channel; 
@@ -96,7 +96,7 @@ void mydak::server::handle_connection(std::shared_ptr<mydak::connection> new_con
 	);
 	
 	if (error_code) {
-		mydak::log_func_debug_error(error_code.message());
+		logger::log_func_debug_error(error_code.message());
 		return 2;
 	}
 	return 3;
@@ -145,14 +145,14 @@ std::pair<size_t, size_t> mydak::server::get_client_index(std::array<char, mydak
 	auto it = client_indices.find(public_key);
 			
 	if (it == client_indices.end()) {
-		mydak::log_debug_error(NO_ONLINE_CLIENT);
+		logger::log_debug_error(NO_ONLINE_CLIENT);
 		return std::pair(-1, -1);
 	}
 
 
 	auto& slot = clients_slot_vector[it->second];
 	if (slot.empty()) {
-		mydak::log_debug_error(NO_SLOT_VALUE);
+		logger::log_debug_error(NO_SLOT_VALUE);
 		// TODO: INVESTIGATE IF THIS SHOULD RETURN FUCKED UP PAIR OR ACTUALLY VALID PAIR (PROBABLY FUCKED UP ONE)
 		// why someone need fucking empty client?
 		return std::pair(-1, -1);
@@ -170,14 +170,14 @@ boost::asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_p
 			// Get client messages and socket
 			mydak::optional_ref<mydak::slot<mydak::client>> slot_optional = get_client(clientIndex);
 			if (!slot_optional.has_value()) {
-				mydak::log_debug_error(EMPTY_SLOT_OPTIONAL);
+				logger::log_debug_error(EMPTY_SLOT_OPTIONAL);
 				continue;
 			}
 
 			auto& slot = slot_optional.value();
 
 			if (slot.empty()) {
-				mydak::log_debug_error(EMPTY_SLOT);
+				logger::log_debug_error(EMPTY_SLOT);
 				continue;
 			}
 			
@@ -187,7 +187,7 @@ boost::asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_p
 			auto& messages = data.messages;
 
 			if (socket == nullptr || messages == nullptr) {
-				mydak::log_debug_error(std::format("socket is {}, messages = {}", (socket == nullptr) ? "NULL" : "NON NULL", (messages == nullptr) ? "NULL" : "NON NULL"));
+				logger::log_debug_error(std::format("socket is {}, messages = {}", (socket == nullptr) ? "NULL" : "NON NULL", (messages == nullptr) ? "NULL" : "NON NULL"));
 				continue;
 			}
 			
@@ -196,7 +196,7 @@ boost::asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_p
 				co_await boost::asio::async_write(*socket, boost::asio::buffer(messages->front()), boost::asio::use_awaitable);
 		}
 	} catch (const std::exception& e) {
-		mydak::log_debug_error(e.what());
+		logger::log_debug_error(e.what());
 	}
 
 	co_return;

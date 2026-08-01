@@ -15,9 +15,9 @@ constexpr std::string_view ASSIGN_TO_NON_NULL_OBJECT =
 
 namespace mydak {
 	template <typename T>
-	struct slot {		
-		slot(T object) : object(object), generation(1) {}
-		~slot() {}
+	struct slot {
+		explicit slot(T object) : object(object), generation(1) {}
+		~slot() = default;
 		
 		void clear() {
 			object.reset();
@@ -32,7 +32,7 @@ namespace mydak {
 			return object.value();
 		}
 
-		size_t get_slot_generation() {
+		size_t get_slot_generation() const {
 			return generation;
 		}
 
@@ -40,7 +40,7 @@ namespace mydak {
 		template <typename... Args>
 		void set_value(Args&&... args) {
 			if (!empty()) {
-				mydak::log_debug_error(ASSIGN_TO_NON_NULL_OBJECT);
+				logger::log_debug_error(ASSIGN_TO_NON_NULL_OBJECT);
 				this->clear();
 			}
 			

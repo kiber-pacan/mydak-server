@@ -7,11 +7,14 @@ namespace mydak {
 	template<typename T>
 	struct optional_ref {
 		optional_ref() noexcept = default;
-		optional_ref(std::nullopt_t) noexcept {};
 
+		// NOLINTNEXTLINE(google-explicit-constructor)
+		optional_ref(std::nullopt_t) noexcept {}
+
+		// NOLINTNEXTLINE(google-explicit-constructor)
 		optional_ref(T& data) noexcept :
 			object(std::optional<std::reference_wrapper<T>>(data)) {}
-
+		// ^ intended implicitness
 		
 		
 		bool has_value() noexcept {
