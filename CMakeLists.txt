@@ -35,6 +35,8 @@ add_executable(${EXECUTABLE_NAME}
         core/database/database.hpp
         core/parameters/parameters.hpp
         core/parameters/parameters.cpp
+        core/util/tools.hpp
+        core/util/tools.hpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
