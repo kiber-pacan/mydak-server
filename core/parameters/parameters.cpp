@@ -2,29 +2,32 @@
 // Created by akicatt on 01.08.2026.
 //
 
-#include "parameters.hpp"
-
 #include <unordered_map>
 
+#include "parameters.hpp"
+#include "tools.hpp"
+
 namespace parameters {
-    inline static constexpr uint8_t max_uint8_t = std::numeric_limits<uint8_t>::max();
-    inline static constexpr int8_t max_int8_t = std::numeric_limits<int8_t>::max();
+    static constexpr uint8_t max_uint8_t = std::numeric_limits<uint8_t>::max();
+    static constexpr int8_t max_int8_t = std::numeric_limits<int8_t>::max();
 
-    static inline const std::unordered_map<std::string, size_t> existing_arguments{
-        {"--db-hostname", 0},
-        //{"--db-username", 1},
-        //{"--db-password", 2}
-    };
+    static const auto existing_arguments = mydak::tools::index_unordered_map(
+        "--db-hostname",
+        "--db-username",
+        "--db-password"
+    );
 
-    inline static const std::vector<mydak::args::parameter_variant> existing_parameters{
-        mydak::args::parameter<2>("localhost")
+    static const std::vector<mydak::args::variants_wrapper> existing_parameters{
+        mydak::args::parameter<2>("localhost"),
+        mydak::args::parameter<1>(4, 64, "username"),
+        mydak::args::parameter<1>(4, 64, "password")
     };
 }
 
 void mydak::args::help() {
     for (const auto& argument : parameters::existing_arguments) {
-        const auto& variant = parameters::existing_parameters[argument.second];
-        variant.visit([argument](auto&& parameter) {
+        const auto& variant_wrapper = parameters::existing_parameters[argument.second];
+        variant_wrapper.variant.visit([argument](auto&& parameter) {
             logger::log(std::format("{} : {}", argument.first, parameter.limits_to_string()));
         });
     }
@@ -32,8 +35,8 @@ void mydak::args::help() {
     std::exit(1);
 }
 
-[[nodiscard]] std::vector<mydak::args::parameter_variant> mydak::args::process_args(const int argc, char* argv[]) {
-    std::vector<parameter_variant> values = parameters::existing_parameters;
+[[nodiscard]] std::vector<mydak::args::variants_wrapper> mydak::args::process_args(const int argc, char* argv[]) {
+    std::vector<variants_wrapper> values = parameters::existing_parameters;
     for (int i = 1; i < argc; i++) {
         std::string raw = argv[i];
 
@@ -58,8 +61,8 @@ void mydak::args::help() {
         }
 
         const size_t& index = it->second;
-        auto& variant = values[index];
-        variant.visit([value](auto&& parameter) {
+        auto& variant_wrapper = values[index];
+        variant_wrapper.variant.visit([value](auto&& parameter) {
             parameter.try_set_val(value);
         });
     }
