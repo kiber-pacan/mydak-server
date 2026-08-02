@@ -7,9 +7,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
+#include "tools.hpp"
 #include "database/database.hpp"
 #include "boost/asio.hpp"
 #include "util/logger.hpp"
@@ -47,7 +49,15 @@ namespace mydak::args {
             return std::format("from {} to {}", min, max);
         }
 
-        [[nodiscard]] T get_data() const {
+        template <typename T1>
+        void get_data(T1& ptr) const {
+            if constexpr (std::is_assignable_v<T1, T>) {
+                ptr = data;
+            }
+        }
+
+
+        [[nodiscard]] T get_data() {
             return data;
         }
 
@@ -113,7 +123,7 @@ namespace mydak::args {
     };
     #pragma endregion
 
-    template <uint8_t type>
+    template <uint8_t Type>
     struct parameter;
 
     // int_8t - 0
@@ -137,7 +147,6 @@ namespace mydak::args {
             this->max = 1024;
         }
 
-        using parameter_base_string::parameter_base_string;
         void try_set_val(const std::string& value) override {
             if (is_in_limits(value)) {
                 if (is_an_ip(value)) {
@@ -152,12 +161,67 @@ namespace mydak::args {
     };
     // PARAMETER TYPES END
 
-    using parameter_variant = std::variant<parameter<0>, parameter<1>, parameter<2>>;
+    #pragma region variants
+    // ReSharper disable once CppFunctionIsNotImplemented; I fucking hate yellow highlights
+    template <std::size_t... Indices>
+    auto parameters(std::index_sequence<Indices...>) -> std::variant<parameter<Indices>...>;
 
+    template <std::size_t N>
+    using make_parameter_variants = decltype(parameters(std::make_index_sequence<N>()));
+
+
+
+
+    // VARIANT COUNT
+    constexpr std::size_t parameter_count = 3;
+    constexpr std::array<std::size_t, parameter_count> parameter_indices =
+        mydak::tools::constexpr_indexed_array<parameter_count>();
+    using parameter_variants = make_parameter_variants<parameter_count>;
+
+    struct variants_wrapper {
+        template <uint8_t Type>
+        // ReSharper disable once CppNonExplicitConvertingConstructor
+        variants_wrapper(parameter<Type> variant) : variant(variant) {}
+
+        template <typename T>
+        void data(T& t) {
+            variant.visit([&t](auto&& p) {
+                p.get_data(t);
+            });
+        }
+
+        template <typename T>
+        T data() {
+            return variant.visit([]<typename T1>(T1&& p) {
+                if constexpr (std::is_assignable_v<decltype(p.get_data()), T>) {
+                    return p.get_data();
+                } else {
+                    return T{};
+                }
+            });
+        }
+
+        template <std::size_t N>
+        auto data() {
+            return std::get<N>(variant).get_data();
+        }
+
+
+
+
+        parameter_variants variant;
+    };
+
+    #pragma endregion
 
     void help();
 
-    [[nodiscard]] std::vector<parameter_variant> process_args(const int argc, char* argv[]);
+    [[nodiscard]] std::vector<variants_wrapper> process_args(int argc, char* argv[]);
+
+    template <typename... T>
+    auto get(std::variant<T...> variant) {
+        using type = decltype(std::get<variant.index()>(variant));
+    }
 }
 
 #endif //MYDAK_BACKEND_PARAMS_H
