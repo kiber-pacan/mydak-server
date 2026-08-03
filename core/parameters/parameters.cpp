@@ -8,6 +8,7 @@
 
 #include "parameters.hpp"
 
+// Negative numbers is not gonna pass this test
 bool mydak::args::is_a_number(const std::string_view text) {
     return !text.empty() ? std::ranges::all_of(text, [](auto& character){ return std::isdigit(static_cast<unsigned char>(character)); }) : false;
 }
@@ -22,12 +23,13 @@ bool mydak::args::is_an_ip(const std::string& raw_ip) {
     return error ? false : true;
 }
 
+// Output order is undefined
 void mydak::args::help() {
     for (const auto& argument : existing_arguments) {
         const auto& variant_wrapper = existing_parameters[argument.second];
 
         variant_wrapper.visit([argument](auto&& parameter) {
-            logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid(parameter.get_data()).name())));
+            logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid(decltype(parameter.get_data())).name())));
         });
     }
 

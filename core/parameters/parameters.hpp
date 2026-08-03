@@ -209,10 +209,8 @@ namespace mydak::args {
 
 
     // VARIANT COUNT
-    constexpr std::size_t parameters_count = 3;
-    using parameter_variants = make_parameter_variants<parameters_count>;
-
-    using parameters_array_type = std::array<parameter_variants, parameters_count>;
+    constexpr std::size_t parameters_variant_count = 3;
+    using parameter_variants = make_parameter_variants<parameters_variant_count>;
     #pragma endregion
 
 
@@ -229,7 +227,7 @@ namespace mydak::args {
      * @return A pair containing integral_constant index and the tuple of arguments.
      */
     template <static_string Command_name, std::size_t N, typename... T>
-    requires (N < parameters_count)
+    requires (N < parameters_variant_count)
     constexpr auto make_parameter(T... args) {
         return std::make_pair(std::integral_constant<std::size_t, N>{}, std::make_pair(Command_name, std::make_tuple(args...)));
     }
@@ -275,7 +273,7 @@ namespace mydak::args {
         using type_indices = std::index_sequence<pairs.first...>;
         constexpr type_indices type_indices_obj{};
 
-        auto parameters = parameters_array_type{std::make_from_tuple<parameter<pairs.first>>(pairs.second.second)...};
+        auto parameters = std::array<parameter_variants, sizeof...(pairs)>{std::make_from_tuple<parameter<pairs.first>>(pairs.second.second)...};
         auto commands = std::make_tuple(pairs.second.first...);
 
 
@@ -289,7 +287,15 @@ namespace mydak::args {
     static constexpr auto [existing_parameters, existing_arguments_raw, type_indices] = make_parameters(
         make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
-        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password")
+        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password"),
+        make_parameter<"--db-test1", details::TYPE_STRING>(1, 64, "username"),
+        make_parameter<"--db-test2", details::TYPE_STRING>(4, 64, "username"),
+        make_parameter<"--db-test3", details::TYPE_IP>("localhost"),
+        make_parameter<"--db-test4", details::TYPE_IP>("localhost"),
+        make_parameter<"--db-test5", details::TYPE_SMALL_NUMBER>(2, 64, 5),
+        make_parameter<"--db-test6", details::TYPE_SMALL_NUMBER>(4, 26, 6),
+        make_parameter<"--db-test7", details::TYPE_SMALL_NUMBER>(1, 64, 8)
+
     );
 
     static auto existing_arguments = std::apply([](auto&&... args) {
@@ -301,10 +307,10 @@ namespace mydak::args {
     struct parameters_accessor {
         constexpr ~parameters_accessor() = default;
         constexpr parameters_accessor() = default;
-        explicit constexpr parameters_accessor(parameters_array_type parameters) : parameters(std::move(parameters)) {}
+        explicit constexpr parameters_accessor(std::array<parameter_variants, existing_parameters.size()> parameters) : parameters(std::move(parameters)) {}
 
         template <std::size_t N>
-        requires (N < parameters_count)
+        requires (N < parameters_variant_count)
         auto get() const {
             // Getting type from our magic constexpr type_indices
             using type = std::decay_t<decltype(type_indices)>;
@@ -313,7 +319,7 @@ namespace mydak::args {
         }
 
     private:
-        parameters_array_type parameters;
+        std::array<parameter_variants, existing_parameters.size()> parameters;
     };
 
 
