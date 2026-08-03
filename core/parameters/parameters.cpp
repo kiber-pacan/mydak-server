@@ -27,7 +27,7 @@ void mydak::args::help() {
         const auto& variant_wrapper = existing_parameters[argument.second];
 
         variant_wrapper.visit([argument](auto&& parameter) {
-            logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid((parameter.get_data())).name())));
+            logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid(parameter.get_data()).name())));
         });
     }
 
