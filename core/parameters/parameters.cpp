@@ -3,40 +3,39 @@
 //
 
 #include <unordered_map>
+#include <boost/asio/ip/address.hpp>
+#include <boost/core/demangle.hpp>
 
 #include "parameters.hpp"
-#include "tools.hpp"
 
-namespace parameters {
-    static constexpr uint8_t max_uint8_t = std::numeric_limits<uint8_t>::max();
-    static constexpr int8_t max_int8_t = std::numeric_limits<int8_t>::max();
+bool mydak::args::is_a_number(const std::string_view text) {
+    return !text.empty() ? std::ranges::all_of(text, [](auto& character){ return std::isdigit(static_cast<unsigned char>(character)); }) : false;
+}
 
-    static const auto existing_arguments = mydak::tools::index_unordered_map(
-        "--db-hostname",
-        "--db-username",
-        "--db-password"
-    );
-
-    static const std::vector<mydak::args::variants_wrapper> existing_parameters{
-        mydak::args::parameter<2>("localhost"),
-        mydak::args::parameter<1>(4, 64, "username"),
-        mydak::args::parameter<1>(4, 64, "password")
-    };
+bool mydak::args::is_an_ip(const std::string& raw_ip) {
+    if (raw_ip == "localhost") {
+        logger::log_debug("localhost is discouraged from using!");
+        return true;
+    }
+    boost::system::error_code error;
+    boost::asio::ip::make_address(raw_ip, error);
+    return error ? false : true;
 }
 
 void mydak::args::help() {
-    for (const auto& argument : parameters::existing_arguments) {
-        const auto& variant_wrapper = parameters::existing_parameters[argument.second];
-        variant_wrapper.variant.visit([argument](auto&& parameter) {
-            logger::log(std::format("{} : {}", argument.first, parameter.limits_to_string()));
+    for (const auto& argument : existing_arguments) {
+        const auto& variant_wrapper = existing_parameters[argument.second];
+
+        variant_wrapper.visit([argument](auto&& parameter) {
+            logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid((parameter.get_data())).name())));
         });
     }
 
     std::exit(1);
 }
 
-[[nodiscard]] std::vector<mydak::args::variants_wrapper> mydak::args::process_args(const int argc, char* argv[]) {
-    std::vector<variants_wrapper> values = parameters::existing_parameters;
+[[nodiscard]] mydak::args::parameters_accessor mydak::args::process_args(const int argc, char* argv[]) {
+    auto values = existing_parameters;
     for (int i = 1; i < argc; i++) {
         std::string raw = argv[i];
 
@@ -54,18 +53,18 @@ void mydak::args::help() {
             logger::exception(std::format("Empty value: {}!", parameter_string));
         }
 
-        auto it = parameters::existing_arguments.find(parameter_string);
+        auto it = existing_arguments.find(parameter_string);
 
-        if (it == parameters::existing_arguments.end()) {
+        if (it == existing_arguments.end()) {
             logger::exception(std::format("Wrong parameter: {}! seek help: --help.", parameter_string));
         }
 
         const size_t& index = it->second;
         auto& variant_wrapper = values[index];
-        variant_wrapper.variant.visit([value](auto&& parameter) {
-            parameter.try_set_val(value);
+        variant_wrapper.visit([value](auto&& parameter) {
+            parameter.try_set_val(value.c_str());
         });
     }
 
-    return values;
+    return parameters_accessor(values);
 }
