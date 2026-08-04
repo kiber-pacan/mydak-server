@@ -26,14 +26,6 @@ constexpr std::string_view SERVER_STARTED =
 	"The server started!";
 
 
-
-
-
-
-
-
-
-
 int main(const int argc, char* argv[]) {
 	asio::io_context io;
 	const auto parameters = mydak::args::process_args(argc, argv);
@@ -41,6 +33,16 @@ int main(const int argc, char* argv[]) {
 	std::cout << parameters.get<0>() << std::endl;
 	std::cout << parameters.get<1>() << std::endl;
 	std::cout << parameters.get<2>() << std::endl;
+
+	/*constexpr mydak::tools::static_map static_map{
+		std::make_pair("5aaaaa", 2),
+		std::make_pair("4aaaa", 2),
+		std::make_pair("2aa", 2),
+		std::make_pair("3aaa", 2),
+		std::make_pair("1a", 2)
+	};*/
+
+	//std::cout << static_map.at<"2afwa">() << std::endl;
 
 
 	//mydak::database database(io, std::get<2>(parameters[0]).get_data(), std::get<2>(parameters[1]).get_data(), std::get<2>(parameters[2]).get_data());

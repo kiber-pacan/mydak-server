@@ -25,19 +25,28 @@ bool mydak::args::is_an_ip(const std::string& raw_ip) {
 
 // Output order is undefined
 void mydak::args::help() {
+    /*
     for (const auto& argument : existing_arguments) {
         const auto& variant_wrapper = existing_parameters[argument.second];
 
         variant_wrapper.visit([argument](auto&& parameter) {
             logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid(decltype(parameter.get_data())).name())));
         });
+    }*/
+
+    tools::constexpr_for<std::size(parameters)>(
+    [&](auto i) {
+        const auto& argument = std::get<i>(options_tuple);
+        const auto& parameter = parameters[i];
+        std::cout << argument.c_str() << std::endl;
     }
+);
 
     std::exit(1);
 }
 
 [[nodiscard]] mydak::args::parameters_accessor mydak::args::process_args(const int argc, char* argv[]) {
-    auto values = existing_parameters;
+    auto values = parameters;
     for (int i = 1; i < argc; i++) {
         std::string raw = argv[i];
 
@@ -55,9 +64,9 @@ void mydak::args::help() {
             logger::exception(std::format("Empty value: {}!", parameter_string));
         }
 
-        auto it = existing_arguments.find(parameter_string);
+        auto it = options_indices.find(parameter_string);
 
-        if (it == existing_arguments.end()) {
+        if (it == options_indices.end()) {
             logger::exception(std::format("Wrong parameter: {}! seek help: --help.", parameter_string));
         }
 
