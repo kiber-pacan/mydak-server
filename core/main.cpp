@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <boost/asio.hpp>
+#include <boost/core/demangle.hpp>
 
 #include "main/server.hpp"
 #include "logger.hpp"
@@ -30,24 +31,13 @@ int main(const int argc, char* argv[]) {
 	asio::io_context io;
 	const auto parameters = mydak::args::process_args(argc, argv);
 
-	std::cout << parameters.get<0>() << std::endl;
-	std::cout << parameters.get<1>() << std::endl;
-	std::cout << parameters.get<2>() << std::endl;
+	mydak::database database(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
+	asio::co_spawn(
+		io,
+		database.coro_main(),
+		asio::detached
+	);
 
-	/*constexpr mydak::tools::static_map static_map{
-		std::make_pair("5aaaaa", 2),
-		std::make_pair("4aaaa", 2),
-		std::make_pair("2aa", 2),
-		std::make_pair("3aaa", 2),
-		std::make_pair("1a", 2)
-	};*/
-
-	//std::cout << static_map.at<"2afwa">() << std::endl;
-
-
-	//mydak::database database(io, std::get<2>(parameters[0]).get_data(), std::get<2>(parameters[1]).get_data(), std::get<2>(parameters[2]).get_data());
-
-	/*
 	try {
 		const auto server = std::make_shared<mydak::server>(io);
 		server.get()->start_accepting_connections();
@@ -59,7 +49,7 @@ int main(const int argc, char* argv[]) {
 	}
 
 	mydak::logger::log_debug(SERVER_SHUT_DOWN);
-	*/
+
 	return 0;
 }
 
