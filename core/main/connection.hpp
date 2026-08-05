@@ -14,19 +14,19 @@ namespace mydak {
 	using receive_signal = boost::asio::experimental::channel<void(boost::system::error_code)>;
 
 	struct connection : std::enable_shared_from_this<connection> {
-		connection(boost::asio::io_context& io, const std::shared_ptr<server> &server) :
+		connection(boost::asio::io_context& io, const std::shared_ptr<server>& server) :
 			socket(std::make_shared<boost::asio::ip::tcp::socket>(io)),
 			server(server) {}
 		
 		std::shared_ptr<boost::asio::ip::tcp::socket> getSocket();
 		
-		std::optional<std::pair<size_t, size_t>> get_recipient_index(const std::array<char, 64> &recipient);
+		std::optional<std::pair<size_t, size_t>> get_recipient_index(const std::array<char, 64>& recipient);
 	
 		boost::asio::awaitable<void> start();
 
 		void end_connection() const;
 
-		void delayed_message(std::array<char, proto::PUBLIC_KEY_L> recipient, std::vector<char> message_with_public_key);
+		void delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message);
 	private:
 		size_t index{};
 	

@@ -49,16 +49,8 @@ namespace mydak {
 			size_t generation,
 			const std::vector<char>& message
 		);
-
-		boost::asio::awaitable<void> async_add_message(
-			size_t senderIndex,
-			size_t recipientIndex,
-			size_t generation,
-			std::vector<char> message
-		);
-
 		
-		std::pair<size_t, size_t> get_client_index(const std::array<char, proto::PUBLIC_KEY_L> &public_key);
+		std::pair<size_t, size_t> get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
 	private:
 		//mydak::clients clients{};		
 		slot_vector<client> clients_slot_vector{};

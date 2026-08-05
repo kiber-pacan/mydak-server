@@ -251,15 +251,20 @@ namespace mydak::args {
 
 
     #pragma region Setup
-    static constexpr auto [out1, out2, out3] = make_parameters(
+
+    static constexpr auto tuple_boy = make_parameters(
         make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
-        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password")
+        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password"),
+        make_parameter<"--db-passw2ord", details::TYPE_STRING>(4, 64, "password"),
+        make_parameter<"--db-pass4word", details::TYPE_STRING>(4, 64, "password")
     );
 
-    static constexpr std::array<parameter_variants, std::size(out1)> parameters = out1;
-    static constexpr auto options_tuple = out2; // std::tuple of various static strings like --db-password
-    static constexpr auto type_sequence = out3; // std::sequence of corresponding types
+    static constexpr std::size_t parameters_count = std::get<0>(tuple_boy).size();
+
+    static constexpr std::array<parameter_variants, std::size(std::get<0>(tuple_boy))> parameters = std::get<0>(tuple_boy);
+    static constexpr auto options_tuple = std::get<1>(tuple_boy); // std::tuple of various static strings like --db-password
+    static constexpr auto type_sequence = std::get<2>(tuple_boy); // std::sequence of corresponding types
     inline std::vector<std::string> immortal_strings{}; // using this for storing parameter strings
 
     // Indices for each option inside the parameters array
@@ -272,15 +277,16 @@ namespace mydak::args {
     struct parameters_accessor {
         constexpr ~parameters_accessor() = default;
         constexpr parameters_accessor() = default;
-        explicit constexpr parameters_accessor(std::array<parameter_variants, parameters.size()> parameters) : parameters(parameters) {}
+        explicit constexpr parameters_accessor(std::array<parameter_variants, parameters_count> parameters_internal) : parameters_internal(parameters_internal) {}
 
         template <std::size_t N>
-        requires (N < parameters_variant_count)
-        auto get() const {
+        auto get() const
+        // requires (N < parameters_count) linter is mad bout dis
+        {
             // Getting type from our magic constexpr type_indices
             using type = std::decay_t<decltype(type_sequence)>;
 
-            return std::get<tools::at<N, type>::value>(parameters[N]).get_data();
+            return std::get<tools::at<N, type>::value>(parameters_internal[N]).get_data();
         }
 
         template <tools::static_string Option>
@@ -288,10 +294,10 @@ namespace mydak::args {
             using type = std::decay_t<decltype(type_sequence)>;
             const auto N = options_indices.consteval_at<Option>();
 
-            return std::get<tools::at<N, type>::value>(parameters[N]).get_data();
+            return std::get<tools::at<N, type>::value>(parameters_internal[N]).get_data();
        }
     private:
-        std::array<parameter_variants, parameters.size()> parameters;
+        std::array<parameter_variants, parameters_count> parameters_internal;
     };
 
 

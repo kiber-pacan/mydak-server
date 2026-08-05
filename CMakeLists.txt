@@ -72,11 +72,12 @@ find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED)
 
 target_link_libraries(${EXECUTABLE_NAME} PUBLIC
-  sodium
-  tomlplusplus::tomlplusplus
-  OpenSSL::Crypto
-  OpenSSL::SSL
-  Boost::headers
+        sodium
+        tomlplusplus::tomlplusplus
+        OpenSSL::Crypto
+        OpenSSL::SSL
+        Boost::headers
+        boost_charconv
 )
 
 target_compile_definitions(${EXECUTABLE_NAME} PUBLIC SDL_MAIN_USE_CALLBACKS)

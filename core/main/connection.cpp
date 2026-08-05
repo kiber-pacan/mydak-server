@@ -70,8 +70,7 @@ asio::awaitable<void> mydak::connection::start() {
 	signal_channel = std::make_shared<receive_signal>(socket->get_executor());
 	
 	try {
-		std::array<char, proto::PUBLIC_KEY_L> public_key{};
-		
+
 		// Another fucking bullshit.
 		//
 		//asio::awaitable<size_t> bytes_awaitable = asio::async_read(socket, asio::buffer(rawkey), asio::use_awaitable);
@@ -97,7 +96,7 @@ asio::awaitable<void> mydak::connection::start() {
 		index = server->add_client(public_key, socket, signal_channel);
 		this->public_key = public_key;
 
-		// Recieve messages
+		// Receive messages
 		while (true) {
 			// GREETINGS
 			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::PUBLIC_KEY_L> greetings{};
@@ -132,14 +131,14 @@ asio::awaitable<void> mydak::connection::start() {
 
 
 			// Always get little endian
-			std::array<char, mydak::proto::MESSAGE_SIZE_L> size =
+			std::array<char, proto::MESSAGE_SIZE_L> size =
 				(std::endian::native == std::endian::little) ?
-				(std::bit_cast<std::array<char, mydak::proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size)))
+				(std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size)))
 				:
-				(std::bit_cast<std::array<char, mydak::proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(message_size))));
-			
-			
-			size_t message_with_public_key_size = message_size + mydak::proto::PUBLIC_KEY_L + mydak::proto::MESSAGE_SIZE_L;
+				(std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(message_size))));
+
+
+			const size_t message_with_public_key_size = message_size + proto::PUBLIC_KEY_L + proto::MESSAGE_SIZE_L;
 			std::vector<char> message_with_public_key{};
 			message_with_public_key.reserve(message_with_public_key_size);
 			// [public_key][size][message]
@@ -159,7 +158,7 @@ asio::awaitable<void> mydak::connection::start() {
 			}
 
 
-			uint8_t code = server->add_message_to_queue(recipient_pair_optional.value().first, recipient_pair_optional.value().second, message_with_public_key);
+			const uint8_t code = server->add_message_to_queue(recipient_pair_optional.value().first, recipient_pair_optional.value().second, message_with_public_key);
 			switch (code) {
 				// No client with that index
 			    case 0: {
@@ -190,7 +189,7 @@ asio::awaitable<void> mydak::connection::start() {
 			}
 		}
 	}
-	catch (std::exception& e) {
+	catch ([[maybe_unused]] std::exception& e) {
 		end_connection();
 		co_return;
 	}
@@ -207,7 +206,7 @@ void mydak::connection::end_connection() const {
 }
 
 // MYSQL SHENANIGANS
-void mydak::connection::delayed_message(std::array<char, mydak::proto::PUBLIC_KEY_L> recipient, std::vector<char> message) {
+void mydak::connection::delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message) {
 	logger::log_debug_error(NO_CLIENT_WITH_THAT_KEY);
 
 }
