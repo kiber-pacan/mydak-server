@@ -33,7 +33,7 @@ namespace mydak::args {
     // OTHER START
     bool is_a_number(std::string_view text);
 
-    bool is_an_ip(const std::string& raw_ip);
+    bool is_an_ip(std::string_view raw_ip);
     // OTHER END
 
 
@@ -126,7 +126,7 @@ namespace mydak::args {
 
     struct parameter_base_string : parameter_base<std::string_view, uint32_t>  {
         using parameter_base::parameter_base;
-        void try_set_val(const char* value) { this->try_set_val_internal(value); }
+        void try_set_val(std::string_view value) { this->try_set_val_internal(std::string_view(value)); }
     };
     #pragma endregion
 
@@ -150,10 +150,10 @@ namespace mydak::args {
     // IP - 2
     template<>
     struct parameter<2> : parameter_base_string {
-        explicit constexpr parameter(std::string_view hostname)
+        explicit constexpr parameter(const std::string_view hostname)
             : parameter_base_string(0, 1024, hostname) {}
 
-        void try_set_val(const char* value) {
+        void try_set_val(std::string_view value) {
             if (is_an_ip(value)) {
                 try_set_val_internal(value);
             } else {
@@ -254,22 +254,16 @@ namespace mydak::args {
     static constexpr auto [out1, out2, out3] = make_parameters(
         make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
-        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password"),
-        make_parameter<"--db-test1", details::TYPE_STRING>(1, 64, "username"),
-        make_parameter<"--db-test2", details::TYPE_STRING>(4, 64, "username"),
-        make_parameter<"--db-test3", details::TYPE_IP>("localhost"),
-        make_parameter<"--db-test4", details::TYPE_IP>("localhost"),
-        make_parameter<"--db-test5", details::TYPE_SMALL_NUMBER>(2, 64, 5),
-        make_parameter<"--db-test6", details::TYPE_SMALL_NUMBER>(4, 26, 6),
-        make_parameter<"--db-test7", details::TYPE_SMALL_NUMBER>(1, 64, 8)
+        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password")
     );
 
     static constexpr std::array<parameter_variants, std::size(out1)> parameters = out1;
     static constexpr auto options_tuple = out2; // std::tuple of various static strings like --db-password
-    static constexpr auto type_sequence = out3; // types of the std::variant of the parameter_variants
+    static constexpr auto type_sequence = out3; // std::sequence of corresponding types
+    inline std::vector<std::string> immortal_strings{}; // using this for storing parameter strings
 
     // Indices for each option inside the parameters array
-    static constexpr auto options_indices = std::apply([](auto&&... args) {
+    static constexpr tools::static_map<std::size(parameters), std::size_t> options_indices = std::apply([](auto&&... args) {
         return tools::index_static_map(args.c_str()...);
     }, options_tuple);
     #pragma endregion
@@ -286,17 +280,16 @@ namespace mydak::args {
             // Getting type from our magic constexpr type_indices
             using type = std::decay_t<decltype(type_sequence)>;
 
-            return std::get<tools::at<N, type>::index>(parameters[N]).get_data();
+            return std::get<tools::at<N, type>::value>(parameters[N]).get_data();
         }
 
-        //template <tools::static_string Option>
-        //auto get(const std::string& option) const {
-        //    using type = std::decay_t<decltype(type_sequence)>;
-       //     const auto N = options_indices[option];
+        template <tools::static_string Option>
+        auto get() const {
+            using type = std::decay_t<decltype(type_sequence)>;
+            const auto N = options_indices.consteval_at<Option>();
 
-            //return std::get<, type>::index>(parameters[N]).get_data();
-       // }
-
+            return std::get<tools::at<N, type>::value>(parameters[N]).get_data();
+       }
     private:
         std::array<parameter_variants, parameters.size()> parameters;
     };

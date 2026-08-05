@@ -13,7 +13,7 @@ bool mydak::args::is_a_number(const std::string_view text) {
     return !text.empty() ? std::ranges::all_of(text, [](auto& character){ return std::isdigit(static_cast<unsigned char>(character)); }) : false;
 }
 
-bool mydak::args::is_an_ip(const std::string& raw_ip) {
+bool mydak::args::is_an_ip(std::string_view raw_ip) {
     if (raw_ip == "localhost") {
         logger::log_debug("localhost is discouraged from using!");
         return true;
@@ -33,20 +33,26 @@ void mydak::args::help() {
             logger::log(std::format("{} : {} ({})", argument.first, parameter.limits_to_string(), boost::core::demangle(typeid(decltype(parameter.get_data())).name())));
         });
     }*/
-
+    std::array<std::string_view, std::size(parameters)> array{};
     tools::constexpr_for<std::size(parameters)>(
-    [&](auto i) {
-        const auto& argument = std::get<i>(options_tuple);
-        const auto& parameter = parameters[i];
-        std::cout << argument.c_str() << std::endl;
+        [&](auto i) {
+            array[i] = std::string_view{std::get<i>(options_tuple).c_str()};
+        }
+    );
+
+    for (std::size_t i = 0; i < std::size(parameters); i++) {
+        parameters[i].visit([&](auto&& parameter) {
+        logger::log(std::format("{} : {} ({}), default value: {}.", array[i], parameter.limits_to_string(), boost::core::demangle(typeid(decltype(parameter.get_data())).name()), parameter.get_data()));
+        });
     }
-);
 
     std::exit(1);
 }
 
 [[nodiscard]] mydak::args::parameters_accessor mydak::args::process_args(const int argc, char* argv[]) {
-    auto values = parameters;
+    auto new_parameters = parameters;
+    immortal_strings.resize(128);
+
     for (int i = 1; i < argc; i++) {
         std::string raw = argv[i];
 
@@ -58,24 +64,25 @@ void mydak::args::help() {
         }
 
         std::string parameter_string = raw.substr(0, equals_pos);
-        auto value = std::string(raw.subview(equals_pos + 1, raw.size() - equals_pos - 1));
+        immortal_strings[i] = std::string(raw.subview(equals_pos + 1, raw.size() - equals_pos - 1));
+        const auto& value = immortal_strings[i];
 
         if (value.empty()) {
             logger::exception(std::format("Empty value: {}!", parameter_string));
         }
 
-        auto it = options_indices.find(parameter_string);
+        auto opt = options_indices.at(parameter_string);
 
-        if (it == options_indices.end()) {
+        if (!opt.has_value()) {
             logger::exception(std::format("Wrong parameter: {}! seek help: --help.", parameter_string));
         }
 
-        const size_t& index = it->second;
-        auto& variant_wrapper = values[index];
-        variant_wrapper.visit([value](auto&& parameter) {
+        const size_t& index = opt.value();
+        parameter_variants& variants = new_parameters[index];
+        variants.visit([&](auto&& parameter) {
             parameter.try_set_val(value.c_str());
         });
     }
 
-    return parameters_accessor(values);
+    return parameters_accessor(new_parameters);
 }
