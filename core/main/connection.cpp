@@ -159,7 +159,7 @@ asio::awaitable<void> mydak::connection::start() {
 			}
 
 
-			uint8_t code = server->add_message_to_queue(index, recipient_pair_optional.value().first, recipient_pair_optional.value().second, message_with_public_key);
+			uint8_t code = server->add_message_to_queue(recipient_pair_optional.value().first, recipient_pair_optional.value().second, message_with_public_key);
 			switch (code) {
 				// No client with that index
 			    case 0: {

@@ -47,7 +47,7 @@ namespace mydak::tools {
     template <std::size_t N, std::size_t... Indices>
     struct at<N, std::index_sequence<Indices...>> {
         // Creating array and getting from it by std::size_t by index, simple
-        static constexpr std::size_t index = std::array<std::size_t, sizeof...(Indices)>{Indices...}[N];
+        static constexpr std::size_t value = std::array<std::size_t, sizeof...(Indices)>{Indices...}[N];
     };
 
     template <std::size_t... Indices>
@@ -102,7 +102,7 @@ namespace mydak::tools {
             return a.first < b.first;
         }
     }
-    compare1;
+    compare12;
 
     inline struct
     {
@@ -113,6 +113,10 @@ namespace mydak::tools {
     }
     compare2;
 
+    template <typename T>
+    consteval bool compare1(std::pair<std::string_view, T> a, std::pair<std::string_view, T> b) {
+        return a.first < b.first;
+    }
 
     // STATIC MAP START
     template <std::size_t N, typename T>
@@ -124,11 +128,12 @@ namespace mydak::tools {
         constexpr explicit static_map(Pairs... pairs)
             : array{std::make_pair(std::string_view{pairs.first}, pairs.second)...}
         {
-            std::sort(array.begin(), array.end(), compare1);
+            std::ranges::sort(array, {}, &std::pair<std::string_view, T>::first);
+            //std::sort(array.begin(), array.end(), compare1);
         }
 
         template <static_string key>
-        consteval T at() const {
+        consteval T consteval_at() const {
             auto it = std::lower_bound(array.begin(), array.end(), key, compare2);
             if (it != array.end() && it->first == key) {
                 return it->second;
@@ -137,18 +142,30 @@ namespace mydak::tools {
             throw std::out_of_range("Nonexisting key!");
         }
 
+
+        std::optional<T> at(auto key) const {
+            auto it = std::lower_bound(array.begin(), array.end(), key, compare2);
+            if (it != array.end() && it->first == key) {
+                return std::make_optional(it->second);
+            }
+
+            return std::nullopt;
+        }
+
     private:
         std::array<std::pair<std::string_view, T>, N> array;
+
+
     };
     template <typename... Pairs>
     static_map(Pairs... pairs) -> static_map<sizeof...(Pairs), typename Pairs...[0]::second_type>;
     // STATIC MAP END
 
     template <typename... Chars>
-    auto index_static_map(Chars... names) {
-        return [&names...] <std::size_t... Indices>(std::index_sequence<Indices...>) {
+    consteval static_map<sizeof...(Chars), std::size_t> index_static_map(Chars... names) {
+        return [&] <std::size_t... Indices>(std::index_sequence<Indices...>) {
             return static_map(
-                std::make_pair(std::string_view(names), std::integral_constant<std::size_t, Indices>{})...
+                std::make_pair(names, Indices)...
             );
         } (std::make_index_sequence<sizeof...(names)>());
     }

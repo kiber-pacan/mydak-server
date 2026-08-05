@@ -29,7 +29,7 @@ namespace mydak {
 
 		// Returns index of client
 		[[nodiscard]] size_t add_client(
-			std::array<char, proto::PUBLIC_KEY_L> client,
+			const std::array<char, proto::PUBLIC_KEY_L> &client,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
 		);
@@ -40,15 +40,14 @@ namespace mydak {
 
 		void remove_client(
 			size_t index,
-			std::array<char, proto::PUBLIC_KEY_L> public_key
+			const std::array<char, proto::PUBLIC_KEY_L> &public_key
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
 		[[nodiscard]] uint8_t add_message_to_queue(
-			size_t sender_index,
 			size_t recipient_index,
 			size_t generation,
-			std::vector<char> message
+			const std::vector<char>& message
 		);
 
 		boost::asio::awaitable<void> async_add_message(
@@ -59,7 +58,7 @@ namespace mydak {
 		);
 
 		
-		std::pair<size_t, size_t> get_client_index(std::array<char, proto::PUBLIC_KEY_L> public_key);
+		std::pair<size_t, size_t> get_client_index(const std::array<char, proto::PUBLIC_KEY_L> &public_key);
 	private:
 		//mydak::clients clients{};		
 		slot_vector<client> clients_slot_vector{};
@@ -70,7 +69,7 @@ namespace mydak {
 		asio::ip::tcp::acceptor acceptor;
 		
 		void handle_connection(
-			std::shared_ptr<connection> new_connection,
+			const std::shared_ptr<connection>& new_connection,
 			const std::error_code& error
 		);
 
