@@ -41,6 +41,7 @@ namespace mydak {
 		}
 
 		void pop(const size_t& index) {
+			if (index >= std::size(clients)) return;
 			clients[index].clear();
 			empty_slots.emplace(index);
 			
