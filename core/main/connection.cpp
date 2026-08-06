@@ -193,9 +193,7 @@ asio::awaitable<void> mydak::connection::start() {
 		end_connection();
 		co_return;
 	}
-	
-	end_connection();
-	
+
 	co_return;
 }
 
