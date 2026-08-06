@@ -1,5 +1,5 @@
-#ifndef MYDAK_WEBSOCKET_CORE_MAIN_CPP
-#define MYDAK_WEBSOCKET_CORE_MAIN_CPP
+#ifndef MYDAK_SERVER_CORE_MAIN_CPP
+#define MYDAK_SERVER_CORE_MAIN_CPP
 
 
 #include <boost/asio/detail/chrono.hpp>
@@ -32,11 +32,13 @@ int main(const int argc, char* argv[]) {
 	const auto parameters = mydak::args::process_args(argc, argv);
 
 	mydak::database database(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
-	asio::co_spawn(
+	/*asio::co_spawn(
 		io,
 		database.coro_main(),
 		asio::detached
-	);
+	);*/
+
+	//database.coro_main();
 
 	try {
 		const auto server = std::make_shared<mydak::server>(io);
@@ -53,4 +55,4 @@ int main(const int argc, char* argv[]) {
 	return 0;
 }
 
-#endif  // MYDAK_WEBSOCKET_CORE_MAIN_CPP
+#endif  // MYDAK_SERVER_CORE_MAIN_CPP

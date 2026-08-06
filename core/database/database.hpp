@@ -9,6 +9,8 @@
 #include <boost/mysql.hpp>
 #include <boost/asio.hpp>
 #include <boost/charconv.hpp>
+
+#include "proto.hpp"
 namespace mysql = boost::mysql;
 namespace asio = boost::asio;
 
@@ -26,16 +28,24 @@ namespace mydak {
             connection.connect(params);
         }
 
-        asio::awaitable<void> coro_main() {
-            const char* request = "SELECT 'Hello world!'";
-            mysql::results result;
-            co_await connection.async_execute(request, result);
+        void coro_main() {
+            std::string create_request =
+    std::format("CREATE TABLE IF NOT EXISTS users("
+                "id INT AUTO_INCREMENT PRIMARY KEY,"
+                "public_key VARCHAR({}));",
+                proto::PUBLIC_KEY_L);
+
+            mysql::results ignored_result;
+            connection.execute(create_request, ignored_result);
 
             // Print the first field in the first row
-            std::cout << result.rows().at(0).at(0) << std::endl;
+            bool has_users_table = static_cast<bool>(ignored_result.rows().at(0).at(0).as_int64());
+            std::cout << has_users_table << std::endl;
+
+
 
             // Close the connection
-            co_await connection.async_close();
+            connection.close();
         }
 
 
