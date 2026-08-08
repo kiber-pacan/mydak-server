@@ -66,14 +66,16 @@ namespace mydak {
                     result,
                     asio::use_awaitable
                 );
-                std::uint64_t index = result.last_insert_id();
-                std::cout << "index: " << index << std::endl;
+
+
 
                 co_await connection.async_execute(
                     "SELECT id, public_key, messages FROM mydak_users;",
                     result,
                     asio::use_awaitable
                 );
+
+                std::uint64_t index = result.rows().at(0).at(0).as_int64();
 
                 for (const auto& row : result.rows()) {
                     const auto& id = row.at(0);
@@ -86,6 +88,7 @@ namespace mydak {
             } catch (const std::exception& e) {
                 std::cout << e.what() << std::endl;
             }
+            co_return std::uint64_t{};
         }
 
         asio::awaitable<void> add_message(std::uint64_t index, const std::vector<char>& message) {
@@ -124,6 +127,24 @@ namespace mydak {
             }
 
             co_return;
+        }
+
+        std::uint64_t get_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
+            try {
+                mysql::results result;
+                connection.execute(
+                    mysql::with_params(
+                        "SELECT id FROM mydak_users WHERE public_key = {}",
+                        std::string_view(public_key.data(), public_key.size())
+                    ),
+                    result
+                );
+
+                return result.rows().at(0).at(0).as_int64();
+            } catch (const std::exception& e) {
+                std::cout << e.what() << std::endl;
+                return 0;
+            }
         }
 
     private:
