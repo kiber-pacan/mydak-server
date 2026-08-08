@@ -143,10 +143,11 @@ void mydak::server::remove_client(const size_t index, const std::array<char, pro
 
 mydak::recipient_index mydak::server::get_client_index(const std::array<char, proto::PUBLIC_KEY_L> &public_key) {
 	auto it = client_indices.find(public_key);
-			
+
+
 	if (it == client_indices.end()) {
 		logger::log_debug_error(NO_ONLINE_CLIENT);
-		return recipient_index::empty();
+		return recipient_index(-1, -1, db.get_db_index(public_key));
 	}
 
 
@@ -158,15 +159,7 @@ mydak::recipient_index mydak::server::get_client_index(const std::array<char, pr
 		return recipient_index::empty();
 	}
 	
-	return {it->second.index, slot.get_slot_generation(), get_client_db_index(public_key)};
-}
-
-std::uint64_t mydak::server::get_client_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
-	const auto it = client_indices.find(public_key);
-
-	if (it == client_indices.end()) return -1;
-
-	return it->second.db_index;
+	return {it->second.index, slot.get_slot_generation(), it->second.db_index};
 }
 
 void mydak::server::add_client_to_db(
@@ -182,9 +175,14 @@ void mydak::server::add_client_to_db(
 asio::awaitable<void> mydak::server::add_client_to_db_internal(
 	const std::array<char, proto::PUBLIC_KEY_L>& public_key
 ) {
+	auto it = client_indices.find(public_key);
 	const std::uint64_t db_index = co_await db.add_user(public_key);
-	std::cout << db_index << "\n";
-	client_indices[public_key].db_index = db_index;
+
+	if (it != client_indices.end()) {
+		it->second.db_index = db_index;
+	} else {
+		client_indices[public_key] = client_index(-1, db_index);
+	}
 }
 
 void mydak::server::add_message_to_db(
@@ -193,7 +191,7 @@ void mydak::server::add_message_to_db(
 ) {
 	// TODO DEBUG ERROR
 	if (index == -1) return;
-	std::cout << "DB MESSAGE" << std::endl;
+
 	asio::co_spawn(
 		io,
 		add_message_to_db_internal(index, message),
@@ -205,9 +203,7 @@ asio::awaitable<void> mydak::server::add_message_to_db_internal(
 	std::uint64_t index,
 	const std::vector<char>& message
 ) {
-	std::cout << "DB MESSAGE" << std::endl;
 	co_await db.add_message(index, message);
-
 }
 
 // TODO MAKE DEGENERATE PROOF

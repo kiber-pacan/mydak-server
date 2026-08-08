@@ -47,7 +47,7 @@ namespace mydak {
 
         std::size_t index{};
         std::size_t generation{};
-        std::uint64_t db_index{};
+        std::uint64_t db_index{}; //TODO CHANGE TO INT64_T
     };
 }
 #endif //MYDAK_SERVER_INDICES_H
