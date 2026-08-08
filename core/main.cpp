@@ -29,19 +29,12 @@ constexpr std::string_view SERVER_STARTED =
 
 int main(const int argc, char* argv[]) {
 	asio::io_context io;
-	const auto parameters = mydak::args::process_args(argc, argv);
+	const mydak::args::parameters_accessor parameters = mydak::args::process_args(argc, argv);
 
-	mydak::database database(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
-	/*asio::co_spawn(
-		io,
-		database.coro_main(),
-		asio::detached
-	);*/
-
-	//database.coro_main();
+	mydak::database db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
 
 	try {
-		const auto server = std::make_shared<mydak::server>(io);
+		const auto server = std::make_shared<mydak::server>(io, parameters);
 		server.get()->start_accepting_connections();
 		mydak::logger::log_debug(SERVER_STARTED);
 		io.run();
