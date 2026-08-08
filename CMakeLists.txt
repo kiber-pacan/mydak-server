@@ -37,6 +37,8 @@ add_executable(${EXECUTABLE_NAME}
         core/parameters/parameters.cpp
         core/util/tools.hpp
         core/util/tools.hpp
+        core/util/indices.hpp
+        core/util/indices.hpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
@@ -70,10 +72,12 @@ CPMAddPackage(
 
 find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 target_link_libraries(${EXECUTABLE_NAME} PUBLIC
         sodium
         tomlplusplus::tomlplusplus
+        nlohmann_json::nlohmann_json
         OpenSSL::Crypto
         OpenSSL::SSL
         Boost::headers
