@@ -10,11 +10,16 @@
 #include <optional>
 #include <boost/asio/awaitable.hpp>
 
-#include "util/proto.hpp"
+#include "proto.hpp"
 #include "optional_ref.hpp"
 #include "slot.hpp"
 #include "client.hpp"
+#include "database.hpp"
+#include "indices.hpp"
 #include "slot_vector.hpp"
+#include "parameters.hpp"
+
+
 
 namespace mydak {struct connection;}
 namespace mydak {
@@ -22,14 +27,20 @@ namespace mydak {
 
 	class server : public std::enable_shared_from_this<server> {
 	public:
-		explicit server(asio::io_context& io) : io(io), acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)) {}
+		explicit server(asio::io_context& io, const args::parameters_accessor& parameters)
+		:
+		io(io),
+		acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)),
+		parameters(parameters),
+		db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">())
+		{}
 
 	
 		void start_accepting_connections();
 
 		// Returns index of client
 		[[nodiscard]] size_t add_client(
-			const std::array<char, proto::PUBLIC_KEY_L> &client,
+			const std::array<char, proto::PUBLIC_KEY_L> &public_key,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
 		);
@@ -50,15 +61,37 @@ namespace mydak {
 			const std::vector<char>& message
 		);
 		
-		std::pair<size_t, size_t> get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
-	private:
-		//mydak::clients clients{};		
-		slot_vector<client> clients_slot_vector{};
-		std::map<std::array<char, proto::PUBLIC_KEY_L>, size_t> client_indices{};
+		recipient_index get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
 
-		
+
+		std::uint64_t get_client_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
+
+		void add_client_to_db(
+			const std::array<char, proto::PUBLIC_KEY_L>& public_key
+		);
+
+		void add_message_to_db(
+			std::uint64_t index,
+			const std::vector<char>& message
+		);
+	private:
+		asio::awaitable<void> add_client_to_db_internal(
+			const std::array<char, proto::PUBLIC_KEY_L>& public_key
+		);
+
+		asio::awaitable<void> add_message_to_db_internal(
+			std::uint64_t index,
+			const std::vector<char>& message
+		);
+
+		slot_vector<client> clients_slot_vector{};
+
+		std::map<std::array<char, proto::PUBLIC_KEY_L>, client_index> client_indices{};
+
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
+		args::parameters_accessor parameters;
+		database db;
 		
 		void handle_connection(
 			const std::shared_ptr<connection>& new_connection,

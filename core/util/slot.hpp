@@ -32,7 +32,7 @@ namespace mydak {
 			return object.value();
 		}
 
-		size_t get_slot_generation() const {
+		[[nodiscard]] std::size_t get_slot_generation() const {
 			return generation;
 		}
 
@@ -50,7 +50,7 @@ namespace mydak {
 		
 		private:
 		std::optional<T> object{};
-		size_t generation{};
+		std::size_t generation{};
 	};
 }
 #endif  // MYDAK_WEBSOCKET_UTIL_SLOT_HPP
