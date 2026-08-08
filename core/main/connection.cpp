@@ -18,7 +18,7 @@
 #include "logger.hpp"
 
 constexpr std::string_view FUCKED_UP_GREETNGS_SYMBOL =
-	"First symbol aka greetings[0] is != '\x67'!";
+	"First symbol aka greetings[0] is != \"0x67\"!";
 constexpr std::string_view FUCKED_UP_MESSAGE_SIZE =
 	"Total message size is less than 1 or more than 512 symbols!";
 constexpr std::string_view NO_CLIENT_WITH_THAT_KEY =
@@ -49,14 +49,6 @@ mydak::recipient_index mydak::connection::get_recipient_index(const std::array<c
 	return clients_cache[recipient] = server->get_client_index(recipient);
 }
 
-std::uint64_t mydak::connection::get_db_index(const std::array<char, 64>& recipient) {
-	auto it = clients_cache.find(recipient);
-	if (it != clients_cache.end() && it->second.db_index != -1) {
-		return it->second.db_index;
-	}
-
-	return clients_cache[recipient].db_index = server->get_client_index(recipient).db_index;
-}
 
 asio::awaitable<void> mydak::connection::start() {
 	// Voodoo type shi to keep coroutine alive after it's poiner death
@@ -153,14 +145,14 @@ asio::awaitable<void> mydak::connection::start() {
 			// Evil goto
 		    add_message_to_queue:
 
-			auto recipient_pair_optional = get_recipient_index(recipient);
-			if (recipient_pair_optional.index == -1) {
-				delayed_message(recipient, message_with_public_key);
+			auto recipient_index = get_recipient_index(recipient);
+			if (recipient_index.index == -1) {
+				delayed_message(recipient_index.db_index, message_with_public_key);
 				continue;
 			}
 
 
-			const uint8_t code = server->add_message_to_queue(recipient_pair_optional.index, recipient_pair_optional.generation, message_with_public_key);
+			const uint8_t code = server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
 			switch (code) {
 				// No client with that index
 			    case 0: {
@@ -208,9 +200,7 @@ void mydak::connection::end_connection() const {
 }
 
 // MYSQL SHENANIGANS
-void mydak::connection::delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message) {
+void mydak::connection::delayed_message(const std::uint64_t db_index, const std::vector<char>& message) {
 	// Should be initialized because we called get_recipient_index and cashed its output
-	auto db_i = get_db_index(recipient);
-	std::cout << db_i << std::endl;
-	server->add_message_to_db(db_i, message);
+	server->add_message_to_db(db_index, message);
 }
