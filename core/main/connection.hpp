@@ -30,7 +30,7 @@ namespace mydak {
 
 		void end_connection() const;
 
-		void delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message);
+		void delayed_message(std::uint64_t db_index, const std::vector<char>& message);
 	private:
 		std::size_t index{};
 
