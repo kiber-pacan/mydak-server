@@ -40,24 +40,22 @@ std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-std::optional<std::pair<size_t, size_t>> mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
-	std::pair<size_t, size_t> pair;
+mydak::recipient_index mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
 	auto it = clients_cache.find(recipient);
-	
-	if (it == clients_cache.end()) {
-		std::optional index_optional = server->get_client_index(recipient);
-		if (index_optional.has_value() and index_optional->first != -1) {
-			pair = index_optional.value();
-		} else {
-			return std::nullopt;
-		}
-		
-		clients_cache[recipient] = pair;
-	} else {
-		pair = it->second;
+	if (it != clients_cache.end() && it->second.index != -1) {
+		return it->second;
 	}
 
-	return pair;
+	return clients_cache[recipient] = server->get_client_index(recipient);
+}
+
+std::uint64_t mydak::connection::get_db_index(const std::array<char, 64>& recipient) {
+	auto it = clients_cache.find(recipient);
+	if (it != clients_cache.end() && it->second.db_index != -1) {
+		return it->second.db_index;
+	}
+
+	return clients_cache[recipient].db_index = server->get_client_index(recipient).db_index;
 }
 
 asio::awaitable<void> mydak::connection::start() {
@@ -68,7 +66,7 @@ asio::awaitable<void> mydak::connection::start() {
 	//socket->set_option(option);
 
 	signal_channel = std::make_shared<receive_signal>(socket->get_executor());
-	
+
 	try {
 
 		// Another fucking bullshit.
@@ -94,7 +92,10 @@ asio::awaitable<void> mydak::connection::start() {
 		
 		// Add that boy to the map
 		index = server->add_client(public_key, socket, signal_channel);
-		this->public_key = public_key;
+		server->add_client_to_db(public_key);
+
+		this->public_key_string = std::string(public_key.data(), public_key.size());
+
 
 		// Receive messages
 		while (true) {
@@ -151,14 +152,15 @@ asio::awaitable<void> mydak::connection::start() {
 			size_t tries = 0;
 			// Evil goto
 		    add_message_to_queue:
-			std::optional<std::pair<size_t, size_t>> recipient_pair_optional = get_recipient_index(recipient);
-			if (!recipient_pair_optional.has_value()) {
+
+			auto recipient_pair_optional = get_recipient_index(recipient);
+			if (recipient_pair_optional.index == -1) {
 				delayed_message(recipient, message_with_public_key);
 				continue;
 			}
 
 
-			const uint8_t code = server->add_message_to_queue(recipient_pair_optional.value().first, recipient_pair_optional.value().second, message_with_public_key);
+			const uint8_t code = server->add_message_to_queue(recipient_pair_optional.index, recipient_pair_optional.generation, message_with_public_key);
 			switch (code) {
 				// No client with that index
 			    case 0: {
@@ -194,6 +196,8 @@ asio::awaitable<void> mydak::connection::start() {
 		co_return;
 	}
 
+	end_connection();
+
 	co_return;
 }
 
@@ -205,6 +209,8 @@ void mydak::connection::end_connection() const {
 
 // MYSQL SHENANIGANS
 void mydak::connection::delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message) {
-	logger::log_debug_error(NO_CLIENT_WITH_THAT_KEY);
-
+	// Should be initialized because we called get_recipient_index and cashed its output
+	auto db_i = get_db_index(recipient);
+	std::cout << db_i << std::endl;
+	server->add_message_to_db(db_i, message);
 }

@@ -8,6 +8,8 @@
 #include "util/proto.hpp"
 #include <boost/asio/awaitable.hpp>
 
+#include "indices.hpp"
+
 namespace mydak {struct server;}
 
 namespace mydak {
@@ -17,25 +19,28 @@ namespace mydak {
 		connection(boost::asio::io_context& io, const std::shared_ptr<server>& server) :
 			socket(std::make_shared<boost::asio::ip::tcp::socket>(io)),
 			server(server) {}
-		
+
 		std::shared_ptr<boost::asio::ip::tcp::socket> getSocket();
-		
-		std::optional<std::pair<size_t, size_t>> get_recipient_index(const std::array<char, 64>& recipient);
-	
+
+		recipient_index get_recipient_index(const std::array<char, 64>& recipient);
+
+		std::uint64_t get_db_index(const std::array<char, 64>& recipient);
+
 		boost::asio::awaitable<void> start();
 
 		void end_connection() const;
 
 		void delayed_message(const std::array<char, proto::PUBLIC_KEY_L>& recipient, const std::vector<char>& message);
 	private:
-		size_t index{};
-	
+		std::size_t index{};
+
 		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
 		std::shared_ptr<receive_signal> signal_channel;
 		std::array<char, proto::PUBLIC_KEY_L> public_key{};
+		std::string public_key_string;
 
-		std::map<std::array<char, proto::PUBLIC_KEY_L>, std::pair<size_t, size_t>> clients_cache{};
+		std::map<std::array<char, proto::PUBLIC_KEY_L>, recipient_index> clients_cache{};
 
 	};
 }
