@@ -9,7 +9,7 @@ namespace {
 
 		const std::string_view func_name =
 			index0 != std::string_view::npos ?
-				(index1 != std::string_view::npos ?
+				(index1 != std::string_view::npos && index0 > index1 ?
 					func.substr(index1 + 1, index0 - index1 - 1)
 					: func.substr(0, index0)
 				)
@@ -19,7 +19,7 @@ namespace {
 		return std::string(func_name);
 	}
 }
-
+//mydak::database::database(asio::io_context &, std::string_view, std::string_view, std::string_view)
 static void call_log(const bool error, const bool debug, std::string_view message, std::string_view func) {
 	if (debug and !DEBUG) return;
 
@@ -94,7 +94,7 @@ void mydak::logger::log_func_debug_error(
 void mydak::logger::exception(
 	const std::string& message
 ) {
-	std::cout << message << "\n";
+	std::cerr << message << "\n";
 	std::exit(1);
 }
 
@@ -102,7 +102,9 @@ void mydak::logger::exception_func(
 	const std::string& message,
 	const std::source_location source
 ) {
-	std::cout <<  std::format("{} : {}", get_func_name(source.function_name()), !message.empty() ? std::format(" : {}", message) : "") << "\n";
+	const std::string separator_and_message = !message.empty() ? std::format(" : {}", message) : "";
+
+	std::cerr << get_func_name(source.function_name()) << separator_and_message << '\n';
 	std::exit(1);
 }
 
