@@ -1,6 +1,11 @@
 # Set cmake version
 cmake_minimum_required(VERSION 4.3)
 
+find_program(CCACHE_EXECUTABLE ccache)
+if(CCACHE_EXECUTABLE)
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_EXECUTABLE})
+endif()
+
 # Setting c++ 26 standard
 set(CMAKE_CXX_STANDARD 26)
 
@@ -51,6 +56,7 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE
 )
 
 
+set(CPM_SOURCE_CACHE ${CMAKE_SOURCE_DIR}/.cpm_cache)
 
 # Dependencies
 include(CPM.cmake)
@@ -86,3 +92,13 @@ target_link_libraries(${EXECUTABLE_NAME} PUBLIC
 
 target_compile_definitions(${EXECUTABLE_NAME} PUBLIC SDL_MAIN_USE_CALLBACKS)
 
+# Cache
+target_precompile_headers(${EXECUTABLE_NAME} PRIVATE
+        <nlohmann/json.hpp>
+        <boost/charconv.hpp>
+        <boost/asio.hpp>
+        <sodium.h>
+        <toml++/toml.hpp>
+)
+
+target_compile_options(${EXECUTABLE_NAME} PRIVATE -ftime-trace)
