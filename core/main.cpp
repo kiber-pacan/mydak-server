@@ -31,8 +31,6 @@ int main(const int argc, char* argv[]) {
 	asio::io_context io;
 	const mydak::args::parameters_accessor parameters = mydak::args::process_args(argc, argv);
 
-	mydak::database db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
-
 	try {
 		const auto server = std::make_shared<mydak::server>(io, parameters);
 		server.get()->start_accepting_connections();

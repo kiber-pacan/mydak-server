@@ -26,7 +26,7 @@ constexpr std::string_view WRONG_GENERATION =
 
 void mydak::server::start_accepting_connections() {
 	auto new_connection = std::make_shared<connection>(io, shared_from_this());
-	
+
 	// Wait until server receives connection
 	acceptor.async_accept(
 		*new_connection->getSocket(),
@@ -50,7 +50,7 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 			asio::detached
 		);
 	}
-	
+
 	// Start accepting connections again.
 	start_accepting_connections();
 }
