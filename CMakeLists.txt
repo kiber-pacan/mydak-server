@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 4.3)
 
 find_program(CCACHE_EXECUTABLE ccache)
 if(CCACHE_EXECUTABLE)
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_EXECUTABLE})
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_EXECUTABLE})
 endif()
 
@@ -97,6 +98,7 @@ target_precompile_headers(${EXECUTABLE_NAME} PRIVATE
         <nlohmann/json.hpp>
         <boost/charconv.hpp>
         <boost/asio.hpp>
+        <boost/mysql.hpp>
         <sodium.h>
         <toml++/toml.hpp>
 )
