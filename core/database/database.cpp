@@ -5,6 +5,39 @@
 #include "database.hpp"
 
 
+
+mydak::database::database(asio::io_context& io, std::string_view hostname, std::string_view username, std::string_view password) : io(io), connection(io) {
+    // The hostname, username and password to use
+    mysql::connect_params params;
+    params.server_address.emplace_host_and_port(std::string(hostname));
+    params.username = username;
+    params.password = password;
+    //params.connection_collation = mysql::mariadb_collations::utf8mb4_general_ci;
+
+    mysql::results result;
+
+    // Connect to the server
+    connection.connect(params);
+
+    // Create database and then connect to it
+    connection.execute("CREATE DATABASE IF NOT EXISTS mydak_database;", result);
+
+    connection.execute("USE mydak_database;", result);
+    auto create_request =
+        mysql::with_params(
+            "CREATE TABLE IF NOT EXISTS mydak_users("
+            "id INT AUTO_INCREMENT PRIMARY KEY,"
+            "public_key VARCHAR({}),"
+            "UNIQUE KEY public_key_unique (public_key),"
+            "messages JSON);",
+            proto::PUBLIC_KEY_L
+        );
+    connection.execute(create_request, result);
+
+}
+
+
+
 asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
     try {
         nlohmann::json user;
@@ -21,6 +54,7 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, 
             result,
             asio::use_awaitable
         );
+
 
 
         co_await connection.async_execute(
@@ -40,22 +74,21 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, 
 
         co_return index;
     } catch (const std::exception& e) {
-        logger::exception_func(e.what());
+        std::cout << e.what() << std::endl;
     }
     co_return std::uint64_t{};
 }
 
-
 asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const std::vector<char>& message) {
     try {
         mysql::results result;
-
-        auto request =
+        // TODO USE BLOB VIEW BCS MESSAGE IS FUCKING BROTLI COMPRESSED AND ALSO SHOULD BE ENCODED
+        /*auto request =
         mysql::with_params(
             "UPDATE mydak_users"
             "SET messages = JSON_ARRAY_APPEND(messages, '$.messages', {})"
             "WHERE id = {};",
-            std::string_view(message.data(), message.size()),
+            mysql::blob_view(message.data(), message.size()),
             index
         );
 
@@ -63,7 +96,7 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             request,
             result,
             asio::use_awaitable
-        );
+        );*/
 
         co_await connection.async_execute(
             "SELECT id, public_key, messages FROM mydak_users;",
@@ -78,12 +111,11 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             std::cout << std::format("{} {} {}", id.as_int64(), key.as_string(), messages.as_string()) << std::endl;
         }
     } catch (const std::exception& e) {
-        logger::log_debug_error(e.what());
+        logger::log_func_debug_error(e.what());
     }
 
     co_return;
 }
-
 
 std::uint64_t mydak::database::get_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
     try {
@@ -98,7 +130,7 @@ std::uint64_t mydak::database::get_db_index(const std::array<char, proto::PUBLIC
 
         return result.rows().at(0).at(0).as_int64();
     } catch (const std::exception& e) {
-        logger::log_debug_error(e.what());
+        std::cout << e.what() << std::endl;
         return 0;
     }
 }
