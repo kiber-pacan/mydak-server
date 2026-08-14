@@ -16,7 +16,6 @@
 #include "main/server.hpp"
 #include "logger.hpp"
 
-#include "parameters/parameters.hpp"
 #include "database.hpp"
 
 namespace asio = boost::asio;
@@ -29,7 +28,7 @@ constexpr std::string_view SERVER_STARTED =
 
 int main(const int argc, char* argv[]) {
 	asio::io_context io;
-	const mydak::args::parameters_accessor parameters = mydak::args::process_args(argc, argv);
+	const auto parameters = mydak::args::process_args(argc, argv);
 
 	try {
 		const auto server = std::make_shared<mydak::server>(io, parameters);

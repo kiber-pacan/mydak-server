@@ -17,8 +17,7 @@
 #include "database.hpp"
 #include "indices.hpp"
 #include "slot_vector.hpp"
-#include "parameters.hpp"
-
+#include "parameters_accessor.hpp"
 
 
 namespace mydak {struct connection;}
@@ -27,7 +26,7 @@ namespace mydak {
 
 	class server : public std::enable_shared_from_this<server> {
 	public:
-		explicit server(asio::io_context& io, const args::parameters_accessor& parameters)
+		explicit server(asio::io_context& io, const parameters_accessor& parameters)
 		:
 		io(io),
 		acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)),
@@ -90,7 +89,7 @@ namespace mydak {
 
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
-		args::parameters_accessor parameters;
+		parameters_accessor parameters;
 		database db;
 		
 		void handle_connection(

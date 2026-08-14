@@ -45,6 +45,11 @@ add_executable(${EXECUTABLE_NAME}
         core/util/tools.hpp
         core/util/indices.hpp
         core/util/indices.hpp
+        core/parameters/parameters_accessor.cpp
+        core/parameters/parameters_accessor.hpp
+        core/parameters/parameters_base.hpp
+        core/parameters/parameters_base.hpp
+        core/parameters/parameters_base.cpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE

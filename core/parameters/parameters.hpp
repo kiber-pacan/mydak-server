@@ -14,6 +14,9 @@
 #include "util/logger.hpp"
 #include <charconv>
 
+#include "parameters_accessor.hpp"
+#include "parameters_base.hpp"
+
 
 namespace mydak::args {
     namespace details {
@@ -23,21 +26,6 @@ namespace mydak::args {
     }
 
     #pragma region Utils
-    template <typename T>
-    concept has_size = requires(T t) {
-        { t.size() } -> std::convertible_to<std::size_t>;
-    };
-
-
-
-    // OTHER START
-    bool is_a_number(std::string_view text);
-
-    bool is_an_ip(std::string_view raw_ip);
-    // OTHER END
-
-
-
     // IS_VALID_PAIR START
     template <typename... Args>
     struct is_valid_pair : std::false_type {};
@@ -48,121 +36,6 @@ namespace mydak::args {
     // IS_VALID_PAIR END
     #pragma endregion
 
-
-    #pragma region Parameters stuff
-    template <typename T, typename Numeric>
-    struct parameter_base {
-        constexpr explicit parameter_base() = default;
-        constexpr parameter_base(const Numeric min, const Numeric max, const T& default_value) : data(default_value), min(min), max(max) {}
-        constexpr ~parameter_base() = default;
-
-        [[nodiscard]] std::string to_string() const {
-            if constexpr (std::is_arithmetic_v<T>) {
-                return std::to_string(this->data);
-            } else {
-                return std::string(this->data);
-            }
-        }
-
-        [[nodiscard]] std::string limits_to_string() const {
-            return std::format("from {} to {}", min, max);
-        }
-
-        template <typename T1>
-        constexpr void get_data(T1& ptr) const {
-            if constexpr (std::is_assignable_v<T1, T>) {
-                ptr = data;
-            }
-        }
-
-        [[nodiscard]] constexpr T get_data() const {
-            return data;
-        }
-
-        [[nodiscard]] bool is_in_limits(const T& num) const {
-            if constexpr (has_size<T>) {
-                return num.size() >= this->min && num.size() <= this->max;
-            } else {
-                return num >= this->min && num <= this->max;
-            }
-        }
-
-        void try_set_val_internal(const T& value) {
-            if (is_in_limits(value)) {
-                data = value;
-            } else {
-                logger::exception_func(std::format("{} is not in bounds: {}!", value, limits_to_string()));
-            }
-        }
-    protected:
-        T data{};
-        Numeric min{};
-        Numeric max{};
-    };
-
-
-    #pragma region Base
-    template <typename T>
-    requires std::is_arithmetic_v<T>
-    // Parameter base that can have only types with arithmetic operators
-    struct parameter_base_arithmetic : parameter_base<T, T> {
-        using parameter_base<T, T>::parameter_base;
-
-        void try_set_val(const char* value) {
-            if (is_a_number(value)) {
-                T number{};
-                auto [ptr, ec] = std::from_chars(value, value + std::strlen(value), number);
-                if (ec != std::errc{}) logger::exception_func(std::format("{} is not a number!", value));
-
-                this->try_set_val_internal(number);
-            } else {
-                logger::exception_func(std::format("{} is not a number!", value));
-            }
-        }
-    };
-
-
-    struct parameter_base_string : parameter_base<std::string_view, uint32_t>  {
-        using parameter_base::parameter_base;
-        void try_set_val(std::string_view value) { this->try_set_val_internal(std::string_view(value)); }
-    };
-    #pragma endregion
-
-
-    #pragma region Types
-    template <uint8_t Type>
-    struct parameter;
-
-    // int_8t - 0
-    template<>
-    struct parameter<0> : parameter_base_arithmetic<int8_t> {
-        using parameter_base_arithmetic::parameter_base_arithmetic;
-    };
-
-    // Basic string - 1
-    template<>
-    struct parameter<1> : parameter_base_string {
-        using parameter_base_string::parameter_base_string;
-    };
-
-    // IP - 2
-    template<>
-    struct parameter<2> : parameter_base_string {
-        explicit constexpr parameter(const std::string_view hostname)
-            : parameter_base_string(0, 1024, hostname) {}
-
-        void try_set_val(std::string_view value) {
-            if (is_an_ip(value)) {
-                try_set_val_internal(value);
-            } else {
-                logger::exception_func(std::format("{} is not an ip", value));
-            }
-        }
-    };
-    constexpr std::size_t parameters_variant_count = 3;
-
-    #pragma endregion
-    #pragma endregion
 
 
     #pragma region Variants
@@ -175,7 +48,9 @@ namespace mydak::args {
 
 
     // VARIANT COUNT
-    using parameter_variants = make_parameter_variants<parameters_variant_count>;
+    struct parameter_variants : make_parameter_variants<parameters_variant_count> {
+        using variant::variant;
+    };
     #pragma endregion
 
 
@@ -185,7 +60,7 @@ namespace mydak::args {
      *
      * @tparam N Index of the parameter and the std::variant. should be less than variants_count.
      *
-     * @tparam Command_name Name of the command e.g. --db-hostname.
+     * @tparam Option Name of the command e.g. --db-hostname.
      *
      * @param args Parameters for the initialization of parameter<N>.
      *
@@ -249,7 +124,6 @@ namespace mydak::args {
 
 
     #pragma region Setup
-
     static constexpr auto tuple_boy = make_parameters(
         make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
@@ -265,13 +139,18 @@ namespace mydak::args {
     static constexpr auto type_sequence = std::get<2>(tuple_boy); // std::sequence of corresponding types
     inline std::vector<std::string> immortal_strings{}; // using this for storing parameter strings
 
+
     // Indices for each option inside the parameters array
-    static constexpr tools::static_map<std::size(parameters), std::size_t> options_indices = std::apply([](auto&&... args) {
-        return tools::index_static_map(args.c_str()...);
+    static constexpr mydak::tools::static_map<std::size(parameters), std::size_t> options_indices = std::apply([](auto&&... args) {
+        return mydak::tools::index_static_map(args.c_str()...);
     }, options_tuple);
+
+    [[nodiscard]] consteval auto get_parameters() {return parameters;}
+    [[nodiscard]] consteval auto get_options_tuple() {return options_tuple;}
+    [[nodiscard]] consteval auto get_type_sequence() {return type_sequence;}
     #pragma endregion
 
-
+    /*
     struct parameters_accessor {
         constexpr ~parameters_accessor() = default;
         constexpr parameters_accessor() = default;
@@ -297,6 +176,7 @@ namespace mydak::args {
     private:
         std::array<parameter_variants, parameters_count> parameters_internal;
     };
+    */
 
 
     #pragma region Other
