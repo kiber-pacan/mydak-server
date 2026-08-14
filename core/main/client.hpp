@@ -44,10 +44,10 @@ namespace mydak {
 		
 		void remove_client();
 
-		const mydak::client_data& get_client_data();
+		const client_data& get_client_data();
 		
 	private:
-		mydak::client_data data;
+		client_data data;
 	};
 
 }
