@@ -7,7 +7,6 @@
 #include <string>
 
 #include "logger.hpp"
-#include <format>
 
 namespace mydak::args {
     template <typename T>
@@ -19,6 +18,25 @@ namespace mydak::args {
     bool is_a_number(std::string_view text);
 
     bool is_an_ip(std::string_view raw_ip);
+
+    template <typename T>
+    // ReSharper disable once CppNotAllPathsReturnValue
+    std::string to_string_unsafe(T value) {
+        if constexpr (std::is_arithmetic_v<T>) {
+            std::array<char, 64> buffer{};
+            std::to_chars_result result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+
+            if (result.ec != std::errc()) {
+                logger::exit_func(std::make_error_code(result.ec).message());
+            } else {
+                return {buffer.data(), result.ptr};
+            }
+        } else {
+            return std::string(value);
+        }
+
+        return {};
+    }
     // OTHER END
 
     template <typename T, typename Numeric>
@@ -28,20 +46,18 @@ namespace mydak::args {
         constexpr ~parameter_base() = default;
 
         [[nodiscard]] std::string to_string() const {
-            if constexpr (std::is_arithmetic_v<T>) {
-                const int log10 = std::log10(this->data);
-                const std::size_t buf_size = std::abs(log10) + (log10 < 0);
-                char buf[buf_size]{};
-
-
-                return std::to_string(this->data);
-            } else {
-                return std::string(this->data);
-            }
+            return to_string_unsafe(this->data);
         }
 
         [[nodiscard]] std::string limits_to_string() const {
-            return std::format("from {} to {}", min, max);
+            std::string str;
+            str.reserve(32);
+            str.append("from ");
+            str.append(to_string_unsafe(min));
+            str.append(" to ");
+            str.append(to_string_unsafe(max));
+
+            return str;
         }
 
         template <typename T1>
@@ -67,7 +83,14 @@ namespace mydak::args {
             if (is_in_limits(value)) {
                 data = value;
             } else {
-                logger::exception_func(std::format("{} is not in bounds: {}!", value, limits_to_string()));
+                std::string str;
+                str.reserve(32);
+                str.append(to_string_unsafe(value));
+                str.append(" is not in bounds: ");
+                str.append(limits_to_string());
+                str.append("!");
+
+                logger::exit_func(str);
             }
         }
     protected:
@@ -88,11 +111,23 @@ namespace mydak::args {
             if (is_a_number(value)) {
                 T number{};
                 auto [ptr, ec] = std::from_chars(value, value + std::strlen(value), number);
-                if (ec != std::errc{}) logger::exception_func(std::format("{} is not a number!", value));
+                if (ec != std::errc{}) {
+                    std::string str;
+                    str.reserve(32);
+                    str.append(to_string_unsafe(value));
+                    str.append(" is not a number!");
+
+                    logger::exit_func(str);
+                }
 
                 this->try_set_val_internal(number);
             } else {
-                logger::exception_func(std::format("{} is not a number!", value));
+                std::string str;
+                str.reserve(32);
+                str.append(to_string_unsafe(value));
+                str.append(" is not a number!");
+
+                logger::exit_func(str);
             }
         }
     };
@@ -131,7 +166,12 @@ namespace mydak::args {
             if (is_an_ip(value)) {
                 try_set_val_internal(value);
             } else {
-                logger::exception_func(std::format("{} is not an ip", value));
+                std::string str;
+                str.reserve(32);
+                str.append(to_string_unsafe(value));
+                str.append(" is not an ip!");
+
+                logger::exit_func(str);
             }
         }
     };
