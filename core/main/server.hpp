@@ -17,6 +17,7 @@
 #include "database.hpp"
 #include "indices.hpp"
 #include "slot_vector.hpp"
+
 #include "parameters_accessor.hpp"
 
 
@@ -26,11 +27,11 @@ namespace mydak {
 
 	class server : public std::enable_shared_from_this<server> {
 	public:
-		explicit server(asio::io_context& io, const parameters_accessor& parameters)
+		explicit server(asio::io_context& io, const int argc, char* argv[])
 		:
 		io(io),
 		acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)),
-		parameters(parameters),
+		parameters(argc, argv),
 		db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">())
 		{}
 
@@ -89,7 +90,7 @@ namespace mydak {
 
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
-		parameters_accessor parameters;
+		args::parameters_accessor parameters;
 		database db;
 		
 		void handle_connection(

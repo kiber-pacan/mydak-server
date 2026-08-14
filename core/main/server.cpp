@@ -240,8 +240,8 @@ asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_ptr<rece
 			for (; !messages->empty(); messages->pop())
 				co_await boost::asio::async_write(*socket, asio::buffer(messages->front()), asio::use_awaitable);
 		}
-	} catch (const std::exception& e) {
-		logger::log_debug_error(e.what());
+	} catch (const boost::system::system_error& e) {
+		logger::exception_func(e);
 	}
 
 	co_return;
