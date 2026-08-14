@@ -1,6 +1,6 @@
 #include "logger.hpp"
-#include <iostream>
 
+#include <boost/system/system_error.hpp>
 
 namespace {
 	std::string get_func_name(std::string_view func) {
@@ -9,7 +9,7 @@ namespace {
 
 		const std::string_view func_name =
 			index0 != std::string_view::npos ?
-				(index1 != std::string_view::npos && index0 > index1 ?
+				(index1 != std::string_view::npos ?
 					func.substr(index1 + 1, index0 - index1 - 1)
 					: func.substr(0, index0)
 				)
@@ -19,7 +19,7 @@ namespace {
 		return std::string(func_name);
 	}
 }
-//mydak::database::database(asio::io_context &, std::string_view, std::string_view, std::string_view)
+
 static void call_log(const bool error, const bool debug, std::string_view message, std::string_view func) {
 	if (debug and !DEBUG) return;
 
@@ -91,20 +91,46 @@ void mydak::logger::log_func_debug_error(
 	call_log(true, true, message, source.function_name());
 }
 
-void mydak::logger::exception(
-	const std::string& message
+void mydak::logger::exit(
+	const std::string_view message
 ) {
 	std::cerr << message << "\n";
 	std::exit(1);
 }
 
-void mydak::logger::exception_func(
-	const std::string& message,
-	const std::source_location source
+void mydak::logger::exit(
+	const boost::system::system_error& e
 ) {
-	const std::string separator_and_message = !message.empty() ? std::format(" : {}", message) : "";
-
-	std::cerr << get_func_name(source.function_name()) << separator_and_message << '\n';
+	std::cerr << std::format("{} (code: {})", e.code().message(), e.code().value()) << "\n";
 	std::exit(1);
 }
 
+void mydak::logger::exit_func(
+	const std::string_view message,
+	const std::source_location source
+) {
+	std::cerr << std::format("{} : {}", get_func_name(source.function_name()), !message.empty() ? std::format(" : {}", message) : "") << "\n";
+	std::exit(1);
+}
+
+void mydak::logger::exit_func(
+	const boost::system::system_error& e,
+	const std::source_location source
+) {
+	std::cerr << std::format("{} : {} (code: {})", get_func_name(source.function_name()), e.code().message(), e.code().value()) << "\n";
+	std::exit(1);
+}
+
+
+void mydak::logger::exception(
+	const boost::system::system_error& e
+) {
+	std::cout << std::format("{} (code: {})", e.code().message(), e.code().value()) << "\n";
+}
+
+void mydak::logger::exception_func(
+	const boost::system::system_error& e,
+	const std::source_location source
+) {
+	std::cout << std::format("{} : {} (code: {})", get_func_name(source.function_name()), e.code().message(), e.code().value()) << "\n";
+}

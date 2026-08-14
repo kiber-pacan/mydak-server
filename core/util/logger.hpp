@@ -1,17 +1,18 @@
 #ifndef MYDAK_BACKEND_CORE_UTIL_LOGGER_HPP
 #define MYDAK_BACKEND_CORE_UTIL_LOGGER_HPP
 
-
 #include <source_location>
 #include <string_view>
-
+#include <iostream>
 
 #ifndef NDEBUG
 inline constexpr bool DEBUG = true;
 #else
 inline constexpr bool DEBUG = false;
 #endif
-
+namespace boost::system {
+	struct system_error;
+}
 
 namespace mydak::logger {
 	void log(
@@ -52,12 +53,32 @@ namespace mydak::logger {
 		std::source_location source = std::source_location::current()
 	);
 
+
+	void exit(
+		std::string_view message
+	);
+
+	void exit(
+		const boost::system::system_error& e
+	);
+
+	void exit_func(
+		std::string_view message,
+		std::source_location source = std::source_location::current()
+	);
+
+	void exit_func(
+		const boost::system::system_error& e,
+		std::source_location source = std::source_location::current()
+	);
+
+
 	void exception(
-		const std::string&  message
+		const boost::system::system_error& e
 	);
 
 	void exception_func(
-		const std::string&  message,
+		const boost::system::system_error& e,
 		std::source_location source = std::source_location::current()
 	);
 }
