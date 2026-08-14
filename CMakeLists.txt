@@ -39,17 +39,18 @@ add_executable(${EXECUTABLE_NAME}
         core/util/logger.cpp
         core/database/database.cpp
         core/database/database.hpp
+
+        core/util/tools.hpp
+        core/util/tools.hpp
+        core/util/indices.hpp
+        core/util/indices.hpp
+
         core/parameters/parameters.hpp
         core/parameters/parameters.cpp
-        core/util/tools.hpp
-        core/util/tools.hpp
-        core/util/indices.hpp
-        core/util/indices.hpp
-        core/parameters/parameters_accessor.cpp
-        core/parameters/parameters_accessor.hpp
-        core/parameters/parameters_base.hpp
         core/parameters/parameters_base.hpp
         core/parameters/parameters_base.cpp
+        core/parameters/parameters_accessor.cpp
+        core/parameters/parameters_accessor.hpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
