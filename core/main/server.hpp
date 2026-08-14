@@ -39,7 +39,7 @@ namespace mydak {
 		void start_accepting_connections();
 
 		// Returns index of client
-		[[nodiscard]] size_t add_client(
+		[[nodiscard]] std::tuple<std::size_t, std::size_t> add_client(
 			const std::array<char, proto::PUBLIC_KEY_L> &public_key,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
@@ -55,7 +55,7 @@ namespace mydak {
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
-		[[nodiscard]] uint8_t add_message_to_queue(
+		[[nodiscard]] asio::awaitable<uint8_t> add_message_to_queue(
 			size_t recipient_index,
 			size_t generation,
 			const std::vector<char>& message
@@ -64,9 +64,7 @@ namespace mydak {
 		recipient_index get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
 
 
-		std::uint64_t get_client_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
-
-		void add_client_to_db(
+		asio::awaitable<std::uint64_t> add_client_to_db(
 			const std::array<char, proto::PUBLIC_KEY_L>& public_key
 		);
 
@@ -74,11 +72,13 @@ namespace mydak {
 			std::uint64_t index,
 			const std::vector<char>& message
 		);
-	private:
-		asio::awaitable<void> add_client_to_db_internal(
-			const std::array<char, proto::PUBLIC_KEY_L>& public_key
-		);
 
+		asio::awaitable<void> send_delayed_messages(
+			std::size_t recipient_index,
+			std::size_t generation,
+			std::uint64_t db_index
+		);
+	private:
 		asio::awaitable<void> add_message_to_db_internal(
 			std::uint64_t index,
 			const std::vector<char>& message

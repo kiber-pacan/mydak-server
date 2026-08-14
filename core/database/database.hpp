@@ -26,6 +26,8 @@ namespace mydak {
 
         asio::awaitable<void> add_message(std::uint64_t index, const std::vector<char>& message);
 
+        asio::awaitable<std::vector<std::vector<char>>> get_delayed_messages(std::uint64_t db_index);
+
         std::uint64_t get_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
 
     private:

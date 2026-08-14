@@ -57,7 +57,7 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 
 
 
-[[nodiscard]] uint8_t mydak::server::add_message_to_queue(
+asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 	const std::size_t recipient_index,
 	const std::size_t generation,
 	const std::vector<char>& message
@@ -65,14 +65,16 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 	auto& slot = clients_slot_vector[recipient_index];
 	if (slot.empty()) {
 		logger::log_debug_error(NO_SLOT_VALUE);
-		return 0 ;
+		std::cout << 0 << std::endl;
+		co_return 0 ;
 	}
 	if (slot.get_slot_generation() != generation) {
 		// TODO GET THIS IN CONNECTION TO UPDATE CACHE
 		// OR IF NO CONNECTION WITH THAT PUBLIC ID ADD TO THE
 		// NEW CONNECTIONS WATCHLIST
 		logger::log_debug_error(WRONG_GENERATION);
-		return 1;
+		std::cout << 1 << std::endl;
+		co_return 1;
 	}
 		
 	client& client = slot.get_slot_value();
@@ -86,23 +88,19 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 	boost::system::error_code error_code;
 	
 	// Update recipient socket coroutine
-	asio::co_spawn(
-		io,
-		[signal_channel, error_code]() -> asio::awaitable<void>{			
-			co_await signal_channel->async_send(error_code, asio::use_awaitable);
-		},
-		asio::detached
-	);
+	co_await signal_channel->async_send(error_code, asio::use_awaitable);
 	
 	if (error_code) {
 		logger::log_func_debug_error(error_code.message());
-		return 2;
+		std::cout << 2 << std::endl;
+		co_return 2;
 	}
-	return 3;
+	std::cout << 3 << std::endl;
+	co_return 3;
 }
 
 
-std::size_t mydak::server::add_client(
+std::tuple<std::size_t, std::size_t> mydak::server::add_client(
 	const std::array<char, proto::PUBLIC_KEY_L>& public_key,
 	const std::shared_ptr<asio::ip::tcp::socket>& socket,
 	const std::shared_ptr<receive_signal>& signal_channel
@@ -110,10 +108,12 @@ std::size_t mydak::server::add_client(
 	auto it = client_indices.find(public_key);
 
 	// If no client with that public key is registered
-	if (it != client_indices.end()) return -1;
+	if (it != client_indices.end()) return std::make_tuple(-1, -1);
 
 	// Creating new client entry in slot vector and getting its index
-	const size_t index = clients_slot_vector.emplace_back(socket, signal_channel);
+	auto tuple = clients_slot_vector.emplace_back(socket, signal_channel);
+	const std::size_t& index = std::get<0>(tuple);
+	const std::size_t& generation = std::get<1>(tuple);
 
 	// Adding public key - index association to the map
 	client_indices[public_key] = client_index(index);
@@ -126,7 +126,7 @@ std::size_t mydak::server::add_client(
 		asio::detached
 	);
 	
-	return index;
+	return std::make_tuple(index, generation);
 }
 
 
@@ -146,7 +146,7 @@ mydak::recipient_index mydak::server::get_client_index(const std::array<char, pr
 
 
 	if (it == client_indices.end()) {
-		logger::log_debug_error(NO_ONLINE_CLIENT);
+		logger::log_debug(NO_ONLINE_CLIENT);
 		return recipient_index(-1, -1, db.get_db_index(public_key));
 	}
 
@@ -162,17 +162,8 @@ mydak::recipient_index mydak::server::get_client_index(const std::array<char, pr
 	return {it->second.index, slot.get_slot_generation(), it->second.db_index};
 }
 
-void mydak::server::add_client_to_db(
-	const std::array<char, proto::PUBLIC_KEY_L> &public_key
-) {
-	asio::co_spawn(
-		io,
-		add_client_to_db_internal(public_key),
-		asio::detached
-	);
-}
-
-asio::awaitable<void> mydak::server::add_client_to_db_internal(
+#pragma region Database
+asio::awaitable<std::uint64_t> mydak::server::add_client_to_db(
 	const std::array<char, proto::PUBLIC_KEY_L>& public_key
 ) {
 	auto it = client_indices.find(public_key);
@@ -183,7 +174,12 @@ asio::awaitable<void> mydak::server::add_client_to_db_internal(
 	} else {
 		client_indices[public_key] = client_index(-1, db_index);
 	}
+
+	std::cout << "db_index: " << db_index << std::endl;
+	co_return db_index;
 }
+
+
 
 void mydak::server::add_message_to_db(
 	std::uint64_t index,
@@ -200,11 +196,30 @@ void mydak::server::add_message_to_db(
 }
 
 asio::awaitable<void> mydak::server::add_message_to_db_internal(
-	std::uint64_t index,
+std::uint64_t index,
 	const std::vector<char>& message
 ) {
 	co_await db.add_message(index, message);
 }
+
+
+asio::awaitable<void> mydak::server::send_delayed_messages(
+	const std::size_t recipient_index,
+	const std::size_t generation,
+	std::uint64_t db_index
+) {
+	auto self = shared_from_this();
+	auto messages = co_await db.get_delayed_messages(db_index);
+	const auto& ex = co_await asio::this_coro::executor;
+	std::cout << db_index << " got messages " << messages.size() << std::endl;
+	for (const auto& message : messages) {
+		//TODO maybe can be optimized
+		co_await add_message_to_queue(recipient_index, generation, message);
+		//asio::co_spawn(ex, add_message_to_queue(recipient_index, generation, message), asio::detached);
+	}
+}
+#pragma endregion
+
 
 // TODO MAKE DEGENERATE PROOF
 asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_ptr<receive_signal>& signal_channel, const size_t clientIndex) {

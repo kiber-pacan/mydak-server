@@ -83,11 +83,16 @@ asio::awaitable<void> mydak::connection::start() {
 		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
 		
 		// Add that boy to the map
-		index = server->add_client(public_key, socket, signal_channel);
-		server->add_client_to_db(public_key);
+		auto tuple = server->add_client(public_key, socket, signal_channel);
 
-		this->public_key_string = std::string(public_key.data(), public_key.size());
+		index = std::get<0>(tuple);
+		generation = std::get<1>(tuple);
+		db_index = co_await server->add_client_to_db(public_key);
 
+		const auto& ex = co_await asio::this_coro::executor;
+		asio::co_spawn(ex, server->send_delayed_messages(index, generation, db_index), asio::detached);
+
+		public_key_string = std::string(public_key.data(), public_key.size());
 
 		// Receive messages
 		while (true) {
@@ -145,14 +150,15 @@ asio::awaitable<void> mydak::connection::start() {
 			// Evil goto
 		    add_message_to_queue:
 
-			auto recipient_index = get_recipient_index(recipient);
+			const recipient_index recipient_index = get_recipient_index(recipient);
+
 			if (recipient_index.index == -1) {
 				delayed_message(recipient_index.db_index, message_with_public_key);
 				continue;
 			}
 
 
-			const uint8_t code = server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
+			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
 			switch (code) {
 				// No client with that index
 			    case 0: {
@@ -183,7 +189,8 @@ asio::awaitable<void> mydak::connection::start() {
 			}
 		}
 	}
-	catch ([[maybe_unused]] std::exception& e) {
+	catch (const std::exception& e) {
+		logger::log_debug_error(e.what());
 		end_connection();
 		co_return;
 	}
@@ -202,5 +209,6 @@ void mydak::connection::end_connection() const {
 // MYSQL SHENANIGANS
 void mydak::connection::delayed_message(const std::uint64_t db_index, const std::vector<char>& message) {
 	// Should be initialized because we called get_recipient_index and cashed its output
+	std::cout << "DELAYED MESSAGE" << std::endl;
 	server->add_message_to_db(db_index, message);
 }

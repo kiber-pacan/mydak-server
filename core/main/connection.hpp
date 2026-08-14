@@ -33,6 +33,8 @@ namespace mydak {
 		void delayed_message(std::uint64_t db_index, const std::vector<char>& message);
 	private:
 		std::size_t index{};
+		std::size_t generation{};
+		std::uint64_t db_index{};
 
 		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
