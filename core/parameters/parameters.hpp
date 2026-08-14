@@ -14,9 +14,7 @@
 #include "util/logger.hpp"
 #include <charconv>
 
-#include "parameters_accessor.hpp"
 #include "parameters_base.hpp"
-
 
 namespace mydak::args {
     namespace details {
@@ -150,40 +148,7 @@ namespace mydak::args {
     [[nodiscard]] consteval auto get_type_sequence() {return type_sequence;}
     #pragma endregion
 
-    /*
-    struct parameters_accessor {
-        constexpr ~parameters_accessor() = default;
-        constexpr parameters_accessor() = default;
-        explicit constexpr parameters_accessor(std::array<parameter_variants, parameters_count> parameters_internal) : parameters_internal(parameters_internal) {}
-
-        template <std::size_t N>
-        auto get() const
-        // requires (N < parameters_count) linter is mad bout dis
-        {
-            // Getting type from our magic constexpr type_indices
-            using type = std::decay_t<decltype(type_sequence)>;
-
-            return std::get<tools::at<N, type>::value>(parameters_internal[N]).get_data();
-        }
-
-        template <tools::static_string Option>
-        auto get() const {
-            using type = std::decay_t<decltype(type_sequence)>;
-            const auto N = options_indices.consteval_at<Option>();
-
-            return std::get<tools::at<N, type>::value>(parameters_internal[N]).get_data();
-       }
-    private:
-        std::array<parameter_variants, parameters_count> parameters_internal;
-    };
-    */
-
-
-    #pragma region Other
     void help();
-
-    [[nodiscard]] parameters_accessor process_args(int argc, char* argv[]);
-    #pragma endregion
 }
 
 #endif //MYDAK_BACKEND_PARAMS_H
