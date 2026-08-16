@@ -22,7 +22,7 @@ namespace mydak {
 
 		std::shared_ptr<boost::asio::ip::tcp::socket> getSocket();
 
-		recipient_index get_recipient_index(const std::array<char, 64>& recipient);
+		client_index get_recipient_index(const std::array<char, 64>& recipient);
 
 		std::uint64_t get_db_index(const std::array<char, 64>& recipient);
 
@@ -30,11 +30,9 @@ namespace mydak {
 
 		void end_connection() const;
 
-		void delayed_message(std::uint64_t db_index, const std::vector<char>& message);
+		void delayed_message(std::uint64_t db_index, const std::vector<char>& message) const;
 	private:
-		std::size_t index{};
-		std::size_t generation{};
-		std::uint64_t db_index{};
+		client_index indices{};
 
 		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
@@ -42,7 +40,7 @@ namespace mydak {
 		std::array<char, proto::PUBLIC_KEY_L> public_key{};
 		std::string public_key_string;
 
-		std::map<std::array<char, proto::PUBLIC_KEY_L>, recipient_index> clients_cache{};
+		std::map<std::array<char, proto::PUBLIC_KEY_L>, client_index> clients_cache{};
 
 	};
 }
