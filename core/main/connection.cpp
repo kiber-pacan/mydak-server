@@ -27,22 +27,31 @@ constexpr std::string_view CONNECTION_ENDED =
 	"Connection ended!";
 constexpr std::string_view NO_CLIENT =
 	"No client with that index";
+constexpr std::size_t NO_CLIENT_CODE = 0;
+
 constexpr std::string_view EXPIRED_CACHED_CLIENT =
 	"Cached client is expired, getting new one!";
+constexpr std::size_t EXPIRED_CACHED_CLIENT_CODE = 1;
+
 constexpr std::string_view EXPIRED_CACHED_CLIENT_SECOND_TRY =
 	"Cached client is still somehow expired after getting new one!";
+
 constexpr std::string_view BAD_SIGNAL =
 	"Idk how you managed to fuck with signal channel.";
+constexpr std::size_t BAD_SIGNAL_CODE = 2;
 
+constexpr std::size_t SUCCESS_CODE = 3;
 
+constexpr std::string_view DEFAULT_CASE =
+	"I have to ask - have you ever thought about ending your life? (Something went horribly wrong i must say)";
 
 std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-mydak::recipient_index mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
+mydak::client_index mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
 	auto it = clients_cache.find(recipient);
-	if (it != clients_cache.end() && it->second.index != -1) {
+	if (it != clients_cache.end() && it->second.index != client_index::invalid_index) {
 		return it->second;
 	}
 
@@ -83,14 +92,10 @@ asio::awaitable<void> mydak::connection::start() {
 		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
 		
 		// Add that boy to the map
-		auto tuple = server->add_client(public_key, socket, signal_channel);
-
-		index = std::get<0>(tuple);
-		generation = std::get<1>(tuple);
-		db_index = co_await server->add_client_to_db(public_key);
+		indices = co_await server->add_client(public_key, socket, signal_channel);
 
 		const auto& ex = co_await asio::this_coro::executor;
-		asio::co_spawn(ex, server->send_delayed_messages(index, generation, db_index), asio::detached);
+		asio::co_spawn(ex, server->send_delayed_messages(indices.index, indices.generation, indices.db_index), asio::detached);
 
 		public_key_string = std::string(public_key.data(), public_key.size());
 
@@ -150,9 +155,9 @@ asio::awaitable<void> mydak::connection::start() {
 			// Evil goto
 		    add_message_to_queue:
 
-			const recipient_index recipient_index = get_recipient_index(recipient);
+			const client_index recipient_index = get_recipient_index(recipient);
 
-			if (recipient_index.index == -1) {
+			if (recipient_index.index == client_index::invalid_index) {
 				delayed_message(recipient_index.db_index, message_with_public_key);
 				continue;
 			}
@@ -161,12 +166,12 @@ asio::awaitable<void> mydak::connection::start() {
 			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
 			switch (code) {
 				// No client with that index
-			    case 0: {
+			    case NO_CLIENT_CODE: {
 					logger::log_debug_error(NO_CLIENT);
 					break;
 				}
 				// Wrong  generation
-			    case 1: {
+			    case EXPIRED_CACHED_CLIENT_CODE: {
 					logger::log_debug_error(EXPIRED_CACHED_CLIENT);
 					clients_cache.erase(recipient);
 
@@ -178,19 +183,20 @@ asio::awaitable<void> mydak::connection::start() {
 					goto add_message_to_queue; // Evil goto hack to try again without expired cached message
 				}
 				// Signal failure
-			    case 2: {
+			    case BAD_SIGNAL_CODE: {
 					logger::log_debug_error(BAD_SIGNAL);
 					break;
 				}
 				// Success
-			    case 3: {
+			    case SUCCESS_CODE: {
 
 			    }
+				default: logger::log_func_debug_error(DEFAULT_CASE);
 			}
 		}
 	}
-	catch (const std::exception& e) {
-		logger::log_debug_error(e.what());
+	catch (const boost::system::system_error& e) {
+		logger::exception_func(e);
 		end_connection();
 		co_return;
 	}
@@ -203,12 +209,11 @@ asio::awaitable<void> mydak::connection::start() {
 void mydak::connection::end_connection() const {
 	logger::log_debug_error(CONNECTION_ENDED);
 
-	server->remove_client(index, public_key);
+	server->remove_client(indices.index, public_key);
 }
 
 // MYSQL SHENANIGANS
-void mydak::connection::delayed_message(const std::uint64_t db_index, const std::vector<char>& message) {
+void mydak::connection::delayed_message(const std::uint64_t db_index, const std::vector<char>& message) const {
 	// Should be initialized because we called get_recipient_index and cashed its output
-	std::cout << "DELAYED MESSAGE" << std::endl;
 	server->add_message_to_db(db_index, message);
 }
