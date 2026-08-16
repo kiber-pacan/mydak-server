@@ -63,10 +63,7 @@ target_include_directories(${EXECUTABLE_NAME} PRIVATE
 )
 
 
-set(CPM_SOURCE_CACHE ${CMAKE_SOURCE_DIR}/.cpm_cache)
-
-# Dependencies
-include(CPM.cmake)
+include(cmake/CPM.cmake)
 
 
 # LIBSODIUM
