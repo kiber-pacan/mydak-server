@@ -16,9 +16,9 @@ namespace mydak {
 		}
 
 		template <typename... Args>
-		std::tuple<std::size_t, std::size_t> emplace_back(Args&&... args) {
+		client_index emplace_back(Args&&... args) {
 			if (!empty_slots.empty()) {
-				const auto& index = empty_slots.front();
+				auto index = empty_slots.front();
 				empty_slots.pop();
 
 				// Of course we can do just this degenarate create/copy shit but whyyyy?
@@ -31,13 +31,13 @@ namespace mydak {
 				clients[index].set_value(std::forward<Args>(args)...);
 				logger::log_debug(std::format("Added client at index: {} (at old slot)", index));
 				
-				return std::make_tuple(index, clients[index].get_slot_generation());
+				return {index, clients[index].get_slot_generation()};
 			}
 
 			clients.emplace_back(T(std::forward<Args>(args)...));
 			logger::log_debug(std::format("Added at index: {} (at new slot)", global_index));
 				
-			return std::make_tuple(global_index++, 1);
+			return {global_index++, 1};
 		}
 
 		void pop(const size_t& index) {
@@ -49,8 +49,9 @@ namespace mydak {
 		}
 		
 
-		// PROBABLY SHOULDNT USE 
-		const std::vector<mydak::slot<T>>& get() {
+		// PROBABLY SHOULDNT USE
+
+		const std::vector<slot<T>>& get() {
 			return clients;
 		}
 		

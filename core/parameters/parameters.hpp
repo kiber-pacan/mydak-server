@@ -125,9 +125,7 @@ namespace mydak::args {
     static constexpr auto tuple_boy = make_parameters(
         make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
-        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password"),
-        make_parameter<"--db-passw2ord", details::TYPE_STRING>(4, 64, "password"),
-        make_parameter<"--db-pass4word", details::TYPE_STRING>(4, 64, "password")
+        make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password")
     );
 
     static constexpr std::size_t parameters_count = std::get<0>(tuple_boy).size();

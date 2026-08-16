@@ -13,41 +13,24 @@ namespace mydak {
         client_index(const client_index& self) = default;
 
         static auto empty() {
-            return client_index(-1, -1);
+            return client_index(invalid_index, invalid_index, invalid_index);
         }
 
-        client_index(const std::size_t index, const std::uint64_t db_index)
-        : index(index), db_index(db_index) {}
+        template <typename T, typename T1>
+        client_index(const T index, const T1 generation)
+        requires std::is_integral_v<T> && std::is_integral_v<T1>
+        : index(static_cast<std::size_t>(index)), generation(static_cast<std::size_t>(generation)) {}
 
-        client_index(const std::size_t index)
-        : index(index), db_index(-1) {}
-
-
-        std::size_t index;
-        std::uint64_t db_index;
-    };
-
-    struct recipient_index {
-        recipient_index() = default;
-        ~recipient_index() = default;
-        recipient_index(const recipient_index& self) = default;
-
-        static auto empty() {
-            return recipient_index(-1, -1, -1);
-        }
-
-        recipient_index(const client_index& index, const std::size_t generation) {
-            this->index = index.index;
-            this->generation = generation;
-            this->db_index = index.db_index;
-        }
-        recipient_index(const std::size_t index, const std::size_t generation, const std::uint64_t db_index)
+        template <typename T, typename T1, typename T2>
+        client_index(const T index, const T1 generation, const T2 db_index)
+        requires std::is_integral_v<T> && std::is_integral_v<T1> && std::is_integral_v<T2>
         : index(index), generation(generation), db_index(db_index) {}
 
 
         std::size_t index{};
         std::size_t generation{};
         std::uint64_t db_index{}; //TODO CHANGE TO INT64_T
+        static constexpr std::size_t invalid_index = std::numeric_limits<std::size_t>::max();
     };
 }
 #endif //MYDAK_SERVER_INDICES_H

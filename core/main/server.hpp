@@ -39,7 +39,7 @@ namespace mydak {
 		void start_accepting_connections();
 
 		// Returns index of client
-		[[nodiscard]] std::tuple<std::size_t, std::size_t> add_client(
+		[[nodiscard]] asio::awaitable<client_index> add_client(
 			const std::array<char, proto::PUBLIC_KEY_L> &public_key,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
@@ -61,7 +61,7 @@ namespace mydak {
 			const std::vector<char>& message
 		);
 		
-		recipient_index get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
+		client_index get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
 
 
 		asio::awaitable<std::uint64_t> add_client_to_db(
