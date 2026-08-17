@@ -1,7 +1,4 @@
-cmake_install.cmake
-cpm-package-lock.cmake
 cmake-build-debug
 cmake-build-release
 CMakeFiles
 .idea
-CPM.cmake
