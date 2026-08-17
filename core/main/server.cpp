@@ -12,6 +12,7 @@
 #include "server.hpp"
 #include "connection.hpp"
 #include "logger.hpp"
+#include "codes.hpp"
 
 constexpr std::string_view EMPTY_SLOT_OPTIONAL =
 	"Somehow slot optional is empty!";
@@ -24,7 +25,7 @@ constexpr std::string_view NO_SLOT_VALUE =
 constexpr std::string_view WRONG_GENERATION =
 	"Generation is wrong! Should get a new client.";
 constexpr std::string_view NO_CLIENT_IN_DB =
-	"No client with such public key is in database.";
+	"No client with such public key is in the database.";
 
 
 void mydak::server::start_accepting_connections() {
@@ -70,14 +71,14 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 	auto& slot = clients_slot_vector[recipient_index];
 	if (slot.empty()) {
 		logger::log_debug_error(NO_SLOT_VALUE);
-		co_return 0 ;
+		co_return codes::NO_CLIENT;
 	}
 	if (slot.get_slot_generation() != generation) {
 		// TODO GET THIS IN CONNECTION TO UPDATE CACHE
 		// OR IF NO CONNECTION WITH THAT PUBLIC ID ADD TO THE
 		// NEW CONNECTIONS WATCHLIST
 		logger::log_debug_error(WRONG_GENERATION);
-		co_return 1;
+		co_return codes::EXPIRED_CLIENT;
 	}
 		
 	client& client = slot.get_slot_value();
@@ -95,9 +96,9 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 	
 	if (error_code) {
 		logger::log_func_debug_error(error_code.message());
-		co_return 2;
+		co_return codes::BAD_SIGNAL;
 	}
-	co_return 3;
+	co_return codes::SUCCESS;
 }
 
 
@@ -123,13 +124,13 @@ asio::awaitable<mydak::client_index> mydak::server::add_client(
 	client_indices[public_key] = client_index(indices);
 
 
-	//create coroutine for socket!!!! 
+	//create coroutine for socket!!!!
 	asio::co_spawn(
 		io,
 		socket_coroutine(signal_channel, indices.index),
 		asio::detached
 	);
-	
+
 	co_return indices;
 }
 
@@ -158,8 +159,6 @@ mydak::client_index mydak::server::get_client_index(const std::array<char, proto
 	auto& slot = clients_slot_vector[it->second.index];
 	if (slot.empty()) {
 		logger::log_debug_error(NO_SLOT_VALUE);
-		// TODO: INVESTIGATE IF THIS SHOULD RETURN FUCKED UP PAIR OR ACTUALLY VALID PAIR (PROBABLY FUCKED UP ONE)
-		// why someone need fucking empty client?
 		return client_index::empty();
 	}
 	
@@ -208,18 +207,22 @@ asio::awaitable<void> mydak::server::add_message_to_db_internal(
 asio::awaitable<void> mydak::server::send_delayed_messages(
 	const std::size_t recipient_index,
 	const std::size_t generation,
-	std::uint64_t db_index
+	const std::uint64_t db_index
 ) {
 	auto self = shared_from_this();
-	auto messages = co_await db.get_delayed_messages(db_index);
-	const auto& ex = co_await asio::this_coro::executor;
-	std::cout << db_index << " messages " << std::size(messages) << std::endl;
-	for (const auto& message : messages) {
-		//TODO maybe can be optimized
+	const auto messages = co_await db.get_delayed_messages(db_index);
 
-		co_await add_message_to_queue(recipient_index, generation, message);
-		//asio::co_spawn(ex, add_message_to_queue(recipient_index, generation, message), asio::detached);
+	std::vector<std::uint64_t> db_indices{};
+	db_indices.reserve(messages.size());
+
+	for (const auto& message : messages) {
+		const std::uint8_t code = co_await add_message_to_queue(recipient_index, generation, message.data);
+
+		if (code == codes::SUCCESS) db_indices.push_back(message.db_index);
+		else break;
 	}
+
+	co_await db.delete_delayed_messages(db_indices);
 }
 #pragma endregion
 
