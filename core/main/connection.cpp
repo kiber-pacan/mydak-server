@@ -14,8 +14,9 @@
 
 #include "connection.hpp"
 #include "server.hpp"
-#include "util/proto.hpp"
+#include "proto.hpp"
 #include "logger.hpp"
+#include "codes.hpp"
 
 constexpr std::string_view FUCKED_UP_GREETNGS_SYMBOL =
 	"First symbol aka greetings[0] is != \"0x67\"!";
@@ -27,23 +28,14 @@ constexpr std::string_view CONNECTION_ENDED =
 	"Connection ended!";
 constexpr std::string_view NO_CLIENT =
 	"No client with that index";
-constexpr std::size_t NO_CLIENT_CODE = 0;
-
 constexpr std::string_view EXPIRED_CACHED_CLIENT =
 	"Cached client is expired, getting new one!";
-constexpr std::size_t EXPIRED_CACHED_CLIENT_CODE = 1;
-
 constexpr std::string_view EXPIRED_CACHED_CLIENT_SECOND_TRY =
 	"Cached client is still somehow expired after getting new one!";
-
 constexpr std::string_view BAD_SIGNAL =
 	"Idk how you managed to fuck with signal channel.";
-constexpr std::size_t BAD_SIGNAL_CODE = 2;
-
-constexpr std::size_t SUCCESS_CODE = 3;
-
 constexpr std::string_view DEFAULT_CASE =
-	"I have to ask - have you ever thought about ending your life? (Something went horribly wrong i must say)";
+	"DEFAULT_CASE";
 
 std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
@@ -84,13 +76,13 @@ asio::awaitable<void> mydak::connection::start() {
 		// Look at that beauty! Unfortunately asio::awaitable<> dies because it's an rvalue. 
 		//
 		// size_t bytes = co_await asio::async_read(socket, asio::buffer(key), asio::use_awaitable);
-			
-			
+
+
 		asio::ip::address ip = socket->remote_endpoint().address();
 			
 		// Wow, we got the public key (aka login) from some degenerate. With which we can receive messages from other people.
 		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
-		
+
 		// Add that boy to the map
 		indices = co_await server->add_client(public_key, socket, signal_channel);
 
@@ -126,7 +118,7 @@ asio::awaitable<void> mydak::connection::start() {
 			// RECIPIENT
 			std::array<char, proto::PUBLIC_KEY_L> recipient{};
 			std::ranges::copy(std::span(greetings).subspan(5, 64), recipient.begin());
-			
+
 			// MESSAGE
 			std::vector<char> message{};
 			message.resize(message_size);
@@ -166,12 +158,12 @@ asio::awaitable<void> mydak::connection::start() {
 			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
 			switch (code) {
 				// No client with that index
-			    case NO_CLIENT_CODE: {
+			    case codes::NO_CLIENT: {
 					logger::log_debug_error(NO_CLIENT);
 					break;
 				}
 				// Wrong  generation
-			    case EXPIRED_CACHED_CLIENT_CODE: {
+			    case codes::EXPIRED_CLIENT: {
 					logger::log_debug_error(EXPIRED_CACHED_CLIENT);
 					clients_cache.erase(recipient);
 
@@ -183,12 +175,12 @@ asio::awaitable<void> mydak::connection::start() {
 					goto add_message_to_queue; // Evil goto hack to try again without expired cached message
 				}
 				// Signal failure
-			    case BAD_SIGNAL_CODE: {
+			    case codes::BAD_SIGNAL: {
 					logger::log_debug_error(BAD_SIGNAL);
 					break;
 				}
 				// Success
-			    case SUCCESS_CODE: {
+			    case codes::SUCCESS: {
 
 			    }
 				default: logger::log_func_debug_error(DEFAULT_CASE);
