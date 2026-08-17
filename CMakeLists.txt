@@ -51,6 +51,8 @@ add_executable(${EXECUTABLE_NAME}
         core/parameters/parameters_base.cpp
         core/parameters/parameters_accessor.cpp
         core/parameters/parameters_accessor.hpp
+        core/util/codes.hpp
+        core/util/codes.hpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
