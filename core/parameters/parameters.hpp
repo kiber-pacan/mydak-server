@@ -32,8 +32,9 @@ namespace mydak::args {
     struct is_valid_pair<std::pair<std::integral_constant<std::size_t, N>, std::pair<tools::static_string<N1>, std::tuple<Args...>>>>
         : std::true_type {};
     // IS_VALID_PAIR END
-    #pragma endregion
 
+    void help();
+    #pragma endregion
 
 
     #pragma region Variants
@@ -137,16 +138,14 @@ namespace mydak::args {
 
 
     // Indices for each option inside the parameters array
-    static constexpr mydak::tools::static_map<std::size(parameters), std::size_t> options_indices = std::apply([](auto&&... args) {
-        return mydak::tools::index_static_map(args.c_str()...);
+    static constexpr tools::static_map<std::size(parameters), std::size_t> options_indices = std::apply([](auto&&... args) {
+        return tools::index_static_map(args.c_str()...);
     }, options_tuple);
 
     [[nodiscard]] consteval auto get_parameters() {return parameters;}
     [[nodiscard]] consteval auto get_options_tuple() {return options_tuple;}
     [[nodiscard]] consteval auto get_type_sequence() {return type_sequence;}
     #pragma endregion
-
-    void help();
 }
 
 #endif //MYDAK_BACKEND_PARAMS_H

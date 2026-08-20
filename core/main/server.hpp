@@ -40,7 +40,7 @@ namespace mydak {
 
 		// Returns index of client
 		[[nodiscard]] asio::awaitable<client_index> add_client(
-			const std::array<char, proto::PUBLIC_KEY_L> &public_key,
+			const std::array<char, proto::E2E_KEYS_L> &public_key,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
 		);
@@ -51,7 +51,7 @@ namespace mydak {
 
 		void remove_client(
 			size_t index,
-			const std::array<char, proto::PUBLIC_KEY_L> &public_key
+			const std::array<char, proto::E2E_KEYS_L> &public_key
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
@@ -61,11 +61,11 @@ namespace mydak {
 			const std::vector<char>& message
 		);
 		
-		client_index get_client_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key);
+		client_index get_client_index(const std::array<char, proto::E2E_KEYS_L>& public_key);
 
 
 		asio::awaitable<std::uint64_t> add_client_to_db(
-			const std::array<char, proto::PUBLIC_KEY_L>& public_key
+			const std::array<char, proto::E2E_KEYS_L>& public_key
 		);
 
 		void add_message_to_db(
@@ -86,7 +86,7 @@ namespace mydak {
 
 		slot_vector<client> clients_slot_vector{};
 
-		std::map<std::array<char, proto::PUBLIC_KEY_L>, client_index> client_indices{};
+		std::map<std::array<char, proto::E2E_KEYS_L>, client_index> client_indices{};
 
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;

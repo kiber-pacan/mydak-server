@@ -4,7 +4,7 @@
 namespace mydak {
 	// Mydak protocol
 	struct proto {
-		static constexpr size_t PUBLIC_KEY_L = 64;
+		static constexpr size_t E2E_KEYS_L = 32;
 
 		static constexpr size_t MESSAGE_SIZE_L = 4;
 		

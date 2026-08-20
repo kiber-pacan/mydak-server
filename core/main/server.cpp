@@ -104,7 +104,7 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 
 
 asio::awaitable<mydak::client_index> mydak::server::add_client(
-	const std::array<char, proto::PUBLIC_KEY_L>& public_key,
+	const std::array<char, proto::E2E_KEYS_L>& public_key,
 	const std::shared_ptr<asio::ip::tcp::socket>& socket,
 	const std::shared_ptr<receive_signal>& signal_channel
 ) {
@@ -141,12 +141,12 @@ mydak::optional_ref<mydak::slot<mydak::client>> mydak::server::get_client(const 
 }		
 
 
-void mydak::server::remove_client(const size_t index, const std::array<char, proto::PUBLIC_KEY_L> &public_key) {
+void mydak::server::remove_client(const size_t index, const std::array<char, proto::E2E_KEYS_L> &public_key) {
 	clients_slot_vector.pop(index);
 	client_indices.erase(public_key);
 }
 
-mydak::client_index mydak::server::get_client_index(const std::array<char, proto::PUBLIC_KEY_L> &public_key) {
+mydak::client_index mydak::server::get_client_index(const std::array<char, proto::E2E_KEYS_L> &public_key) {
 	auto it = client_indices.find(public_key);
 
 
@@ -167,7 +167,7 @@ mydak::client_index mydak::server::get_client_index(const std::array<char, proto
 
 #pragma region Database
 asio::awaitable<std::uint64_t> mydak::server::add_client_to_db(
-	const std::array<char, proto::PUBLIC_KEY_L>& public_key
+	const std::array<char, proto::E2E_KEYS_L>& public_key
 ) {
 	auto it = client_indices.find(public_key);
 	const std::uint64_t db_index = co_await db.add_user(public_key);

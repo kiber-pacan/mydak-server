@@ -41,7 +41,7 @@ std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-mydak::client_index mydak::connection::get_recipient_index(const std::array<char, proto::PUBLIC_KEY_L>& recipient) {
+mydak::client_index mydak::connection::get_recipient_index(const std::array<char, proto::E2E_KEYS_L>& recipient) {
 	auto it = clients_cache.find(recipient);
 	if (it != clients_cache.end() && it->second.index != client_index::invalid_index) {
 		return it->second;
@@ -94,7 +94,7 @@ asio::awaitable<void> mydak::connection::start() {
 		// Receive messages
 		while (true) {
 			// GREETINGS
-			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::PUBLIC_KEY_L> greetings{};
+			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::E2E_KEYS_L> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
 			if (greetings[0] != proto::GREETINGS_PREFIX) {
@@ -116,7 +116,7 @@ asio::awaitable<void> mydak::connection::start() {
 			}
 
 			// RECIPIENT
-			std::array<char, proto::PUBLIC_KEY_L> recipient{};
+			std::array<char, proto::E2E_KEYS_L> recipient{};
 			std::ranges::copy(std::span(greetings).subspan(5, 64), recipient.begin());
 
 			// MESSAGE
@@ -133,7 +133,7 @@ asio::awaitable<void> mydak::connection::start() {
 				(std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(message_size))));
 
 
-			const size_t message_with_public_key_size = message_size + proto::PUBLIC_KEY_L + proto::MESSAGE_SIZE_L;
+			const size_t message_with_public_key_size = message_size + proto::E2E_KEYS_L + proto::MESSAGE_SIZE_L;
 			std::vector<char> message_with_public_key{};
 			message_with_public_key.reserve(message_with_public_key_size);
 			// [public_key][size][message]

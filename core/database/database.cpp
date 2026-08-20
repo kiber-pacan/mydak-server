@@ -32,7 +32,7 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
                     // Prevents adding new user with public key that already exists in table
                     "UNIQUE KEY public_key_unique (public_key)"
                 ");",
-                proto::PUBLIC_KEY_L
+                proto::E2E_KEYS_L
             );
         connection.execute(users_request, result);
 
@@ -57,7 +57,7 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
 
 
 
-asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
+asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, proto::E2E_KEYS_L>& public_key) {
     try {
         mysql::results result;
 
@@ -163,7 +163,7 @@ asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_mes
     co_return std::vector<db_message>{};
 }
 
-std::uint64_t mydak::database::get_db_index(const std::array<char, proto::PUBLIC_KEY_L>& public_key) {
+std::uint64_t mydak::database::get_db_index(const std::array<char, proto::E2E_KEYS_L>& public_key) {
     try {
         mysql::results result;
         connection.execute(

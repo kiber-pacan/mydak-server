@@ -37,10 +37,10 @@ namespace mydak {
 		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
 		std::shared_ptr<receive_signal> signal_channel;
-		std::array<char, proto::PUBLIC_KEY_L> public_key{};
+		std::array<char, proto::E2E_KEYS_L> public_key{};
 		std::string public_key_string;
 
-		std::map<std::array<char, proto::PUBLIC_KEY_L>, client_index> clients_cache{};
+		std::map<std::array<char, proto::E2E_KEYS_L>, client_index> clients_cache{};
 
 	};
 }
