@@ -53,6 +53,7 @@ add_executable(${EXECUTABLE_NAME}
         core/parameters/parameters_accessor.hpp
         core/util/codes.hpp
         core/util/codes.hpp
+        core/util/coh.hpp
 )
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE

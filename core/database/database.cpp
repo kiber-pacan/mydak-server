@@ -108,7 +108,7 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             asio::use_awaitable
         );
 
-        co_await connection.async_execute(
+        /*co_await connection.async_execute(
             "SELECT id, user_id, data FROM mydak_messages;",
             result,
             asio::use_awaitable
@@ -120,7 +120,7 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             const auto& user_id = row.at(1);
             const auto& data = row.at(2);
             logger::log_debug(std::format("{} {} {}", id.as_uint64(), user_id.as_uint64(), data.as_blob()));
-        }
+        }*/
     } catch (const std::exception& e) {
         logger::log_func_debug_error(e.what());
     }

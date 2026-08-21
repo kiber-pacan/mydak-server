@@ -1,18 +1,17 @@
-#include <boost/asio/detached.hpp>
-#include <boost/asio/detail/chrono.hpp>
+
 #include <boost/asio/use_awaitable.hpp>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <boost/asio.hpp>
 #include <optional>
-#include <source_location>
 #include "caca++.h"
 
 #include "server.hpp"
 #include "connection.hpp"
 #include "logger.hpp"
 #include "codes.hpp"
+#include "coh.hpp"
 
 constexpr std::string_view EMPTY_SLOT_OPTIONAL =
 	"Somehow slot optional is empty!";
@@ -48,11 +47,7 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 
 	if (!error) {
 		// Spawn coroutine and send it on a free voyage.
-		asio::co_spawn(
-			io,
-			new_connection->start(),
-			asio::detached
-		);
+		coh::detached(new_connection->start());
 	}
 
 	// Start accepting connections again.
@@ -125,11 +120,7 @@ asio::awaitable<mydak::client_index> mydak::server::add_client(
 
 
 	//create coroutine for socket!!!!
-	asio::co_spawn(
-		io,
-		socket_coroutine(signal_channel, indices.index),
-		asio::detached
-	);
+	coh::detached(socket_coroutine(signal_channel, indices.index));
 
 	co_return indices;
 }
@@ -189,11 +180,7 @@ void mydak::server::add_message_to_db(
 ) {
 	if (index == client_index::invalid_index) logger::log_func_debug_error(NO_CLIENT_IN_DB);
 
-	asio::co_spawn(
-		io,
-		add_message_to_db_internal(index, message),
-		asio::detached
-	);
+	coh::detached(add_message_to_db_internal(index, message));
 }
 
 asio::awaitable<void> mydak::server::add_message_to_db_internal(
