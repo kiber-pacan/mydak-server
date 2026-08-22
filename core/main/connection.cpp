@@ -83,9 +83,10 @@ asio::awaitable<void> mydak::connection::start() {
 		// Wow, we got the public key (aka login) from some degenerate. With which we can receive messages from other people.
 		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
 
-		// Add that boy to the map
+		// Add that boy to the server and the database
 		indices = co_await server->add_client(public_key, socket, signal_channel);
 
+		// Send the user delayed messages from the database
 		const auto& ex = co_await asio::this_coro::executor;
 		asio::co_spawn(ex, server->send_delayed_messages(indices.index, indices.generation, indices.db_index), asio::detached);
 

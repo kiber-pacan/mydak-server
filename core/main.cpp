@@ -1,4 +1,6 @@
 #include <boost/asio.hpp>
+
+#include "coh.hpp"
 #include "main/server.hpp"
 #include "logger.hpp"
 
@@ -11,7 +13,7 @@ constexpr std::string_view SERVER_STARTED =
 
 
 int main(const int argc, char* argv[]) {
-	asio::io_context io;
+	asio::io_context& io = mydak::coh::io();
 
 	try {
 		const auto server = std::make_shared<mydak::server>(io, argc, argv);
