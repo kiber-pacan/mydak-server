@@ -42,12 +42,7 @@ std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 }
 
 mydak::client_index mydak::connection::get_recipient_index(const std::array<char, proto::E2E_KEYS_L>& recipient) {
-	auto it = clients_cache.find(recipient);
-	if (it != clients_cache.end() && it->second.index != client_index::invalid_index) {
-		return it->second;
-	}
-
-	return clients_cache[recipient] = server->get_client_index(recipient);
+	return server->get_client_index(recipient);
 }
 
 
@@ -149,6 +144,7 @@ asio::awaitable<void> mydak::connection::start() {
 		    add_message_to_queue:
 
 			const client_index recipient_index = get_recipient_index(recipient);
+			std::cout << recipient_index.generation << std::endl;
 
 			if (recipient_index.index == client_index::invalid_index) {
 				delayed_message(recipient_index.db_index, message_with_public_key);
@@ -166,7 +162,6 @@ asio::awaitable<void> mydak::connection::start() {
 				// Wrong  generation
 			    case codes::EXPIRED_CLIENT: {
 					logger::log_debug_error(EXPIRED_CACHED_CLIENT);
-					clients_cache.erase(recipient);
 
 					// If we somehow got another expired client
 					if (tries++ >= 1) {

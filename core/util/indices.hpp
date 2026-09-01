@@ -29,7 +29,7 @@ namespace mydak {
 
         std::size_t index{};
         std::size_t generation{};
-        std::uint64_t db_index{}; //TODO CHANGE TO INT64_T
+        std::uint64_t db_index{};
         static constexpr std::size_t invalid_index = std::numeric_limits<std::size_t>::max();
     };
 }

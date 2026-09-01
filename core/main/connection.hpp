@@ -37,9 +37,6 @@ namespace mydak {
 		std::shared_ptr<receive_signal> signal_channel;
 		std::array<char, proto::E2E_KEYS_L> public_key{};
 		std::string public_key_string;
-
-		std::map<std::array<char, proto::E2E_KEYS_L>, client_index> clients_cache{};
-
 	};
 }
 #endif  // MYDAK_WEBSOCKET_CORE_CONNECTION_HPP

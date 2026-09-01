@@ -69,9 +69,6 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 		co_return codes::NO_CLIENT;
 	}
 	if (slot.get_slot_generation() != generation) {
-		// TODO GET THIS IN CONNECTION TO UPDATE CACHE
-		// OR IF NO CONNECTION WITH THAT PUBLIC ID ADD TO THE
-		// NEW CONNECTIONS WATCHLIST
 		logger::log_debug_error(WRONG_GENERATION);
 		co_return codes::EXPIRED_CLIENT;
 	}
@@ -95,6 +92,9 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 	}
 	co_return codes::SUCCESS;
 }
+
+
+
 
 
 
