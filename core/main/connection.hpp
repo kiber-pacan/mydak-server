@@ -22,7 +22,7 @@ namespace mydak {
 
 		std::shared_ptr<boost::asio::ip::tcp::socket> getSocket();
 
-		client_index get_recipient_index(const std::array<char, proto::E2E_KEYS_L>& recipient);
+		client_index get_recipient_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& recipient);
 
 		boost::asio::awaitable<void> start();
 
@@ -35,7 +35,7 @@ namespace mydak {
 		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
 		std::shared_ptr<receive_signal> signal_channel;
-		std::array<char, proto::E2E_KEYS_L> public_key{};
+		std::array<unsigned char, proto::E2E_KEYS_RAW_L> public_key{};
 		std::string public_key_string;
 	};
 }

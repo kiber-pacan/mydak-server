@@ -41,7 +41,7 @@ std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
 }
 
-mydak::client_index mydak::connection::get_recipient_index(const std::array<char, proto::E2E_KEYS_L>& recipient) {
+mydak::client_index mydak::connection::get_recipient_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& recipient) {
 	return server->get_client_index(recipient);
 }
 
@@ -76,7 +76,7 @@ asio::awaitable<void> mydak::connection::start() {
 		asio::ip::address ip = socket->remote_endpoint().address();
 			
 		// Wow, we got the public key (aka login) from some degenerate. With which we can receive messages from other people.
-		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), std::string(public_key.data(), 64)));
+		logger::log_debug(std::format("{} connected! key: {}", ip.to_string(), tools::bin2hex_string(public_key)));
 
 		// Add that boy to the server and the database
 		indices = co_await server->add_client(public_key, socket, signal_channel);
@@ -85,74 +85,93 @@ asio::awaitable<void> mydak::connection::start() {
 		const auto& ex = co_await asio::this_coro::executor;
 		asio::co_spawn(ex, server->send_delayed_messages(indices.index, indices.generation, indices.db_index), asio::detached);
 
-		public_key_string = std::string(public_key.data(), public_key.size());
+		public_key_string = std::string(reinterpret_cast<const char *>(public_key.data()), public_key.size());
 
 		// Receive messages
 		while (true) {
-			// GREETINGS
-			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::E2E_KEYS_L> greetings{};
+			// GREETINGS [0x67][message size][recipient]
+			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::E2E_KEYS_RAW_L> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
+			std::cout << "GREETINGS" << std::endl;
+
+			// Check if prefix is right
 			if (greetings[0] != proto::GREETINGS_PREFIX) {
 				logger::log_debug_error(FUCKED_UP_GREETNGS_SYMBOL);
 				break;
 			}
 
-			
-			// MESSAGE SIZE
+			// Copying message size from greetings
 			uint32_t message_size;
 			std::memcpy(&message_size, std::span(greetings).subspan(1,4).data(), 4);
 
 			// We get message in little endian
 			if constexpr (std::endian::native == std::endian::big) message_size = std::byteswap(message_size);
 
-			if (message_size < 1 || message_size > 512) {
+			// Checking if message_size is in boundaries
+			if (message_size >= 1 && message_size <= 512) {
 				logger::log_debug_error(std::format("{} ({})", FUCKED_UP_MESSAGE_SIZE, message_size));
 				break;
 			}
 
-			// RECIPIENT
-			std::array<char, proto::E2E_KEYS_L> recipient{};
-			std::ranges::copy(std::span(greetings).subspan(5, 64), recipient.begin());
+			// Copying recipient into array from greetings
+			constexpr std::size_t message_start = proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L;
+			std::array<unsigned char, proto::E2E_KEYS_RAW_L> recipient{};
+			memcpy(
+				recipient.data(),
+				greetings.data() + message_start,
+				std::size(greetings) - message_start
+			);
 
-			// MESSAGE
+			// Receiving message
+
 			std::vector<char> message{};
 			message.resize(message_size);
 			co_await asio::async_read(*socket.get(), asio::buffer(message, message_size), asio::use_awaitable);
 
 
-			// Always get little endian
-			std::array<char, proto::MESSAGE_SIZE_L> size =
-				(std::endian::native == std::endian::little) ?
-				(std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size)))
-				:
-				(std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(message_size))));
+			// [message size][public key][message]
+			const size_t queued_message_size = message_size + proto::E2E_KEYS_RAW_L + proto::MESSAGE_SIZE_L;
+			std::vector<char> queued_message{};
+			queued_message.reserve(queued_message_size);
 
+			#pragma region Message size
+			// We receive message in little-endian,
+			// so we should byte swap it to big-endian when system is not little-endian
+			std::array<char, proto::MESSAGE_SIZE_L> size;  // NOLINT(*-pro-type-member-init)
+			if constexpr (std::endian::native != std::endian::little) {
+				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(std::size(queued_message))));
+			} else {
+				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(std::size(queued_message)));
+			}
+			#pragma endregion
 
-			const size_t message_with_public_key_size = message_size + proto::E2E_KEYS_L + proto::MESSAGE_SIZE_L;
-			std::vector<char> message_with_public_key{};
-			message_with_public_key.reserve(message_with_public_key_size);
-			// [public_key][size][message]
-			// sender + size is always PUBLIC_KEY_L + 4
-			// TODO FIX ENDIANNES
-			message_with_public_key.append_range(public_key);
-			message_with_public_key.append_range(size);
-			message_with_public_key.append_range(message);
+			queued_message.append_range(size);
+			queued_message.append_range(public_key);
+			queued_message.append_range(message);
+
+			std::cout << std::size(queued_message) << std::endl;
+			std::cout << std::string(reinterpret_cast<const char *>(public_key.data()), std::size(public_key)) << std::endl;
+			std::cout << std::string(queued_message.data(), std::size(queued_message)) << std::endl;
 
 			size_t tries = 0;
+
 			// Evil goto
 		    add_message_to_queue:
 
 			const client_index recipient_index = get_recipient_index(recipient);
 			std::cout << recipient_index.generation << std::endl;
 
+			// If no client with that public key is currently online
+			// we add the queued message to the mariadb database
 			if (recipient_index.index == client_index::invalid_index) {
-				delayed_message(recipient_index.db_index, message_with_public_key);
+				delayed_message(recipient_index.db_index, queued_message);
 				continue;
 			}
 
 
-			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, message_with_public_key);
+			// Trying to add queued message to the queue and processing the code
+			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, queued_message);
 			switch (code) {
 				// No client with that index
 			    case codes::NO_CLIENT: {

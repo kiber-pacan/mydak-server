@@ -28,11 +28,11 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
             mysql::with_params(
                 "CREATE TABLE IF NOT EXISTS mydak_users("
                     "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
-                    "public_key VARCHAR({}),"
+                    "public_key BINARY(32) NOT NULL,"
                     // Prevents adding new user with public key that already exists in table
                     "UNIQUE KEY public_key_unique (public_key)"
                 ");",
-                proto::E2E_KEYS_L
+                proto::E2E_KEYS_RAW_L
             );
         connection.execute(users_request, result);
 
@@ -57,14 +57,16 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
 
 
 
-asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, proto::E2E_KEYS_L>& public_key) {
+asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
     try {
         mysql::results result;
+        mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
+
 
         co_await connection.async_execute(
             mysql::with_params(
                 "INSERT IGNORE INTO mydak_users (public_key) VALUES ({})",
-                std::string_view(public_key.data(), public_key.size())
+                public_key_blob
             ),
             result,
             asio::use_awaitable
@@ -76,7 +78,7 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<char, 
             co_await connection.async_execute(
                 mysql::with_params(
                     "SELECT id FROM mydak_users WHERE public_key = {}",
-                    std::string_view(public_key.data(), public_key.size())
+                    public_key_blob
                 ),
                 result,
                 asio::use_awaitable
@@ -163,13 +165,15 @@ asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_mes
     co_return std::vector<db_message>{};
 }
 
-std::uint64_t mydak::database::get_db_index(const std::array<char, proto::E2E_KEYS_L>& public_key) {
+std::uint64_t mydak::database::get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
     try {
+        mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
+
         mysql::results result;
         connection.execute(
             mysql::with_params(
                 "SELECT id FROM mydak_users WHERE public_key = {}",
-                std::string_view(public_key.data(), public_key.size())
+                public_key_blob
             ),
             result
         );

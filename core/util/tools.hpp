@@ -9,6 +9,9 @@
 #include <string>
 #include <unordered_map>
 
+#include "logger.hpp"
+#include "sodium/utils.h"
+
 namespace mydak::tools {
     template <typename T, typename... Chars>
     T index_map_template(Chars... names) {
@@ -78,15 +81,15 @@ namespace mydak::tools {
             return characters;
         }
 
-        constexpr bool operator == (std::string_view string_view) const {
+        constexpr bool operator == (const std::string_view string_view) const {
             return std::string_view{characters, N - 1} == string_view;
         }
 
-        constexpr bool operator < (std::string_view string_view) const {
+        constexpr bool operator < (const std::string_view string_view) const {
             return std::string_view{characters, N - 1} < string_view;
         }
 
-        constexpr bool operator > (std::string_view string_view) const {
+        constexpr bool operator > (const std::string_view string_view) const {
             return std::string_view{characters, N - 1} > string_view;
         }
 
@@ -169,5 +172,87 @@ namespace mydak::tools {
             );
         } (std::make_index_sequence<sizeof...(names)>());
     }
+
+    struct static_string2 {
+        template <std::size_t N>
+        constexpr static_string2(const char (&str)[N])
+            : size(N), pointer(&str[0]) {}
+
+        std::size_t size;
+        const char* pointer;
+    };
+
+    #pragma region conversions
+    #pragma region Binary to hex
+    template <std::size_t N>
+    static std::array<char, N * 2 + 1> bin2hex(const std::array<unsigned char, N>& bin) {
+        std::array<char, N * 2 + 1> hex; // NOLINT(*-pro-type-member-init)
+        if (sodium_bin2hex(
+            hex.data(),
+            std::size(hex),
+            reinterpret_cast<const unsigned char*>(bin.data()), std::size(bin)
+        ) != nullptr) {
+            logger::exit_func("Failed to convert binary to hex");
+        }
+
+        return hex;
+    }
+
+    template <std::size_t N>
+    static std::string bin2hex_string(const std::array<unsigned char, N>& bin) {
+        std::array<char, N * 2 + 1> hex; // NOLINT(*-pro-type-member-init)
+        if (sodium_bin2hex(
+            hex.data(),
+            std::size(hex),
+            bin.data(), std::size(bin)
+        ) == nullptr) {
+            logger::exit_func("Failed to convert binary to hex");
+        }
+
+        return {hex.data(), std::size(hex) - 1};
+    }
+
+    template <std::size_t N>
+    static void bin2hex(const std::array<unsigned char, N>& bin, char* dest, const std::size_t size) {
+        if (sodium_bin2hex(
+            dest,
+            size,
+            reinterpret_cast<const unsigned char*>(bin.data()), std::size(bin)
+        ) != nullptr) {
+            logger::exit_func("Failed to convert binary to hex");
+        }
+    }
+    #pragma endregion
+
+    #pragma region Hex to binary
+    template <std::size_t N>
+    static std::array<unsigned char, N> hex2bin(const std::string_view hex) {
+        std::array<unsigned char, N> bin; // NOLINT(*-pro-type-member-init)
+        if (sodium_hex2bin(
+            bin.data(),
+            std::size(bin),
+            hex.data(),
+            std::size(hex), nullptr, nullptr, nullptr
+        ) != 0) {
+            logger::exit_func("Failed to convert hex to binary");
+        }
+
+        return bin;
+    }
+
+
+    static void hex2bin(const std::string_view hex, unsigned char *dest, const size_t size) {
+        if (sodium_hex2bin(
+            dest,
+            size,
+            hex.data(),
+            std::size(hex), nullptr, nullptr, nullptr
+        ) != 0) {
+            logger::exit_func("Failed to convert hex to binary");
+        }
+    }
+    #pragma endregion
+    #pragma endregion
+
 }
 #endif //MYDAK_SERVER_TOOLS_H

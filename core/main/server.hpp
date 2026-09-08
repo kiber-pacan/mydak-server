@@ -35,12 +35,12 @@ namespace mydak {
 		db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">())
 		{}
 
-	
+
 		void start_accepting_connections();
 
 		// Returns index of client
 		[[nodiscard]] asio::awaitable<client_index> add_client(
-			const std::array<char, proto::E2E_KEYS_L> &public_key,
+			const std::array<unsigned char, proto::E2E_KEYS_RAW_L> &public_key,
 			const std::shared_ptr<asio::ip::tcp::socket>& socket,
 			const std::shared_ptr<receive_signal>& signal_channel
 		);
@@ -51,7 +51,7 @@ namespace mydak {
 
 		void remove_client(
 			size_t index,
-			const std::array<char, proto::E2E_KEYS_L> &public_key
+			const std::array<unsigned char, proto::E2E_KEYS_RAW_L> &public_key
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
@@ -60,12 +60,12 @@ namespace mydak {
 			size_t generation,
 			const std::vector<char>& message
 		);
-		
-		client_index get_client_index(const std::array<char, proto::E2E_KEYS_L>& public_key);
+
+		client_index get_client_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
 
 
 		asio::awaitable<std::uint64_t> add_client_to_db(
-			const std::array<char, proto::E2E_KEYS_L>& public_key
+			const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key
 		);
 
 		void add_message_to_db(
@@ -86,29 +86,29 @@ namespace mydak {
 
 		slot_vector<client> clients_slot_vector{};
 
-		struct ArrayHasher {
+		struct array_hasher {
 			template <std::size_t N>
-			std::size_t operator()(const std::array<char, N> array) const noexcept {
+			std::size_t operator()(const std::array<unsigned char, N> array) const noexcept {
 				std::size_t seed = 0;
 				for (const auto c : array) {
-					seed ^= std::hash<char>{}(c) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+					seed ^= std::hash<unsigned char>{}(c) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 				}
 				return seed;
 			}
 		};
-		std::unordered_map<const std::array<char, proto::E2E_KEYS_L>, client_index, ArrayHasher> client_indices{};
+		std::unordered_map<const std::array<unsigned char, proto::E2E_KEYS_RAW_L>, client_index, array_hasher> client_indices{};
 
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
 		args::parameters_accessor parameters;
 		database db;
-		
+
 		void handle_connection(
 			const std::shared_ptr<connection>& new_connection,
 			const std::error_code& error
 		);
 
-	
+
 		asio::awaitable<void> socket_coroutine(
 			const std::shared_ptr<receive_signal>& signal_channel,
 			size_t clientIndex
