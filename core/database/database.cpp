@@ -72,6 +72,7 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsign
             asio::use_awaitable
         );
 
+
         if (result.affected_rows() > 0) {
             co_return result.last_insert_id();
         } else {

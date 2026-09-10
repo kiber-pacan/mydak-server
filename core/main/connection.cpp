@@ -35,7 +35,7 @@ constexpr std::string_view EXPIRED_CACHED_CLIENT_SECOND_TRY =
 constexpr std::string_view BAD_SIGNAL =
 	"Idk how you managed to fuck with signal channel.";
 constexpr std::string_view DEFAULT_CASE =
-	"DEFAULT_CASE";
+	"DEFAULT_CASE (something may be horribly wrong)";
 
 std::shared_ptr<asio::ip::tcp::socket> mydak::connection::getSocket() {
 	return socket;
@@ -108,11 +108,14 @@ asio::awaitable<void> mydak::connection::start() {
 			// We get message in little endian
 			if constexpr (std::endian::native == std::endian::big) message_size = std::byteswap(message_size);
 
+			std::uint32_t min = 0;
+			std::uint32_t max = 512;
 			// Checking if message_size is in boundaries
-			if (message_size >= 1 && message_size <= 512) {
+			// TODO FIX
+			/*if (message_size > min && message_size < max) {
 				logger::log_debug_error(std::format("{} ({})", FUCKED_UP_MESSAGE_SIZE, message_size));
 				break;
-			}
+			}*/
 
 			// Copying recipient into array from greetings
 			constexpr std::size_t message_start = proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L;
@@ -131,7 +134,7 @@ asio::awaitable<void> mydak::connection::start() {
 
 
 			// [message size][public key][message]
-			const size_t queued_message_size = message_size + proto::E2E_KEYS_RAW_L + proto::MESSAGE_SIZE_L;
+			const size_t queued_message_size = proto::MESSAGE_SIZE_L + proto::E2E_KEYS_RAW_L + message_size;
 			std::vector<char> queued_message{};
 			queued_message.reserve(queued_message_size);
 
@@ -140,19 +143,17 @@ asio::awaitable<void> mydak::connection::start() {
 			// so we should byte swap it to big-endian when system is not little-endian
 			std::array<char, proto::MESSAGE_SIZE_L> size;  // NOLINT(*-pro-type-member-init)
 			if constexpr (std::endian::native != std::endian::little) {
-				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(std::size(queued_message))));
+				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(std::byteswap(static_cast<uint32_t>(message_size)));
 			} else {
-				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(std::size(queued_message)));
+				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size));
 			}
+			std::cout << "queued_message_size: " << queued_message_size << std::endl;
 			#pragma endregion
 
 			queued_message.append_range(size);
 			queued_message.append_range(public_key);
 			queued_message.append_range(message);
-
-			std::cout << std::size(queued_message) << std::endl;
-			std::cout << std::string(reinterpret_cast<const char *>(public_key.data()), std::size(public_key)) << std::endl;
-			std::cout << std::string(queued_message.data(), std::size(queued_message)) << std::endl;
+			std::cout << "actual size " << std::size(size) + std::size(public_key) + std::size(message) << std::endl;
 
 			size_t tries = 0;
 
@@ -160,7 +161,7 @@ asio::awaitable<void> mydak::connection::start() {
 		    add_message_to_queue:
 
 			const client_index recipient_index = get_recipient_index(recipient);
-			std::cout << recipient_index.generation << std::endl;
+
 
 			// If no client with that public key is currently online
 			// we add the queued message to the mariadb database
@@ -171,7 +172,10 @@ asio::awaitable<void> mydak::connection::start() {
 
 
 			// Trying to add queued message to the queue and processing the code
-			const uint8_t code = co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, queued_message);
+			const uint8_t code =
+				co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, queued_message);
+			std::cout << static_cast<std::size_t>(code) << std::endl;
+
 			switch (code) {
 				// No client with that index
 			    case codes::NO_CLIENT: {
@@ -196,8 +200,13 @@ asio::awaitable<void> mydak::connection::start() {
 				}
 				// Success
 			    case codes::SUCCESS: {
-
+			    	logger::log_func_debug("SUCCESS");
+					break;
 			    }
+				case codes::EXCEPTION: {
+					logger::log_func_debug_error("FUCK");
+					break;
+				}
 				default: logger::log_func_debug_error(DEFAULT_CASE);
 			}
 		}

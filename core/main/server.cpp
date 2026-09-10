@@ -5,7 +5,6 @@
 #include <memory>
 #include <boost/asio.hpp>
 #include <optional>
-#include "caca++.h"
 
 #include "server.hpp"
 #include "connection.hpp"
@@ -61,40 +60,42 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 	const std::size_t generation,
 	const std::vector<char>& message
 ) {
-	auto self = shared_from_this(); // Preventing from destroying after getting out of scope
+	try {
+		auto self = shared_from_this(); // Preventing from destroying after getting out of scope
 
-	auto& slot = clients_slot_vector[recipient_index];
-	if (slot.empty()) {
-		logger::log_debug_error(NO_SLOT_VALUE);
-		co_return codes::NO_CLIENT;
-	}
-	if (slot.get_slot_generation() != generation) {
-		logger::log_debug_error(WRONG_GENERATION);
-		co_return codes::EXPIRED_CLIENT;
-	}
-		
-	client& client = slot.get_slot_value();
+		auto& slot = clients_slot_vector[recipient_index];
+		if (slot.empty()) {
+			logger::log_debug_error(NO_SLOT_VALUE);
+			co_return codes::NO_CLIENT;
+		}
+		if (slot.get_slot_generation() != generation) {
+			logger::log_debug_error(WRONG_GENERATION);
+			co_return codes::EXPIRED_CLIENT;
+		}
 
-	const auto& data = client.get_client_data();
-	auto& signal_channel = data.signal_channel; 
-			
-	// Add messages to recipient
-	client.add_message(message);
-			
-	boost::system::error_code error_code;
-	
-	// Update recipient socket coroutine
-	co_await signal_channel->async_send(error_code, asio::use_awaitable);
-	
-	if (error_code) {
-		logger::log_func_debug_error(error_code.message());
-		co_return codes::BAD_SIGNAL;
+		client& client = slot.get_slot_value();
+
+		const auto& data = client.get_client_data();
+		auto& signal_channel = data.signal_channel;
+
+		// Add messages to recipient
+		client.add_message(message);
+
+		boost::system::error_code error_code;
+
+		// Update recipient socket coroutine
+		co_await signal_channel->async_send(error_code, asio::use_awaitable);
+
+		if (error_code) {
+			logger::log_func_debug_error(error_code.message());
+			co_return codes::EXCEPTION;
+		}
+		co_return codes::SUCCESS;
+	} catch (const std::exception& e) {
+		logger::log_error(e.what());
+		co_return codes::EXCEPTION;
 	}
-	co_return codes::SUCCESS;
 }
-
-
-
 
 
 
@@ -218,7 +219,7 @@ asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_ptr<rece
 	try {
 		while (true) {
 			co_await signal_channel->async_receive(asio::use_awaitable);
-			
+
 			// Get client messages and socket
 			optional_ref<slot<client>> slot_optional = get_client(clientIndex);
 			if (!slot_optional.has_value()) {
@@ -244,8 +245,14 @@ asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_ptr<rece
 			}
 			
 			// Iterate through messages what recipient have
-			for (; !messages->empty(); messages->pop())
-				co_await boost::asio::async_write(*socket, asio::buffer(messages->front()), asio::use_awaitable);
+			for (; !messages->empty(); messages->pop()) {
+				std::cout << "SENT" << std::endl;
+				const auto& message = messages->front();
+				for (std::size_t i = 0; i < std::size(message); i++) {
+					std::cout << i << " " << message[i] << std::endl;
+				}
+				co_await boost::asio::async_write(*socket, asio::buffer(message), asio::use_awaitable);
+			}
 		}
 	} catch (const boost::system::system_error& e) {
 		logger::exception_func(e);

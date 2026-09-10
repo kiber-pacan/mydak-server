@@ -7,10 +7,11 @@
 #include <cstddef>
 
 namespace mydak::codes {
-    constexpr std::size_t NO_CLIENT = 0;
-    constexpr std::size_t EXPIRED_CLIENT = 1;
-    constexpr std::size_t BAD_SIGNAL = 2;
-    constexpr std::size_t SUCCESS = 3;
+    constexpr std::uint8_t NO_CLIENT = 0;
+    constexpr std::uint8_t EXPIRED_CLIENT = 1;
+    constexpr std::uint8_t BAD_SIGNAL = 2;
+    constexpr std::uint8_t SUCCESS = 3;
+    constexpr std::uint8_t EXCEPTION = -1;
 }
 
 #endif //MYDAK_SERVER_CODES_H
