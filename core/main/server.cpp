@@ -246,12 +246,7 @@ asio::awaitable<void> mydak::server::socket_coroutine(const std::shared_ptr<rece
 			
 			// Iterate through messages what recipient have
 			for (; !messages->empty(); messages->pop()) {
-				std::cout << "SENT" << std::endl;
-				const auto& message = messages->front();
-				for (std::size_t i = 0; i < std::size(message); i++) {
-					std::cout << i << " " << message[i] << std::endl;
-				}
-				co_await boost::asio::async_write(*socket, asio::buffer(message), asio::use_awaitable);
+				co_await boost::asio::async_write(*socket, asio::buffer(messages->front()), asio::use_awaitable);
 			}
 		}
 	} catch (const boost::system::system_error& e) {

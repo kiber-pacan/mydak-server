@@ -93,7 +93,6 @@ asio::awaitable<void> mydak::connection::start() {
 			std::array<char, proto::GREETINGS_PREFIX_L + proto::MESSAGE_SIZE_L + proto::E2E_KEYS_RAW_L> greetings{};
 			co_await asio::async_read(*socket.get(), asio::buffer(greetings, greetings.size()), asio::use_awaitable);
 
-			std::cout << "GREETINGS" << std::endl;
 
 			// Check if prefix is right
 			if (greetings[0] != proto::GREETINGS_PREFIX) {
@@ -147,13 +146,11 @@ asio::awaitable<void> mydak::connection::start() {
 			} else {
 				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size));
 			}
-			std::cout << "queued_message_size: " << message_size << std::endl;
 			#pragma endregion
 
 			queued_message.append_range(size);
 			queued_message.append_range(public_key);
 			queued_message.append_range(message);
-			std::cout << "actual size " << std::size(size) + std::size(public_key) + std::size(message) << std::endl;
 
 			size_t tries = 0;
 
@@ -174,7 +171,6 @@ asio::awaitable<void> mydak::connection::start() {
 			// Trying to add queued message to the queue and processing the code
 			const uint8_t code =
 				co_await server->add_message_to_queue(recipient_index.index, recipient_index.generation, queued_message);
-			std::cout << static_cast<std::size_t>(code) << std::endl;
 
 			switch (code) {
 				// No client with that index
