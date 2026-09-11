@@ -147,7 +147,7 @@ asio::awaitable<void> mydak::connection::start() {
 			} else {
 				size = std::bit_cast<std::array<char, proto::MESSAGE_SIZE_L>>(static_cast<uint32_t>(message_size));
 			}
-			std::cout << "queued_message_size: " << queued_message_size << std::endl;
+			std::cout << "queued_message_size: " << message_size << std::endl;
 			#pragma endregion
 
 			queued_message.append_range(size);
