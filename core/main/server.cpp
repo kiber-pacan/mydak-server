@@ -42,8 +42,6 @@ void mydak::server::start_accepting_connections() {
 }
 
 void mydak::server::handle_connection(const std::shared_ptr<connection>& new_connection, const std::error_code& error) {
-	logger::log_debug("new connection");
-
 	if (!error) {
 		// Spawn coroutine and send it on a free voyage.
 		coh::detached(new_connection->start());
