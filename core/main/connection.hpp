@@ -20,19 +20,16 @@ namespace mydak {
 			socket(std::make_shared<boost::asio::ip::tcp::socket>(io)),
 			server(server) {}
 
-		std::shared_ptr<boost::asio::ip::tcp::socket> getSocket();
-
-		client_index get_recipient_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& recipient);
-
 		boost::asio::awaitable<void> start();
 
 		void end_connection() const;
 
 		void delayed_message(std::uint64_t db_index, const std::vector<char>& message) const;
+
+		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 	private:
 		client_index indices{};
 
-		std::shared_ptr<boost::asio::ip::tcp::socket> socket;
 		std::shared_ptr<server> server;
 		std::shared_ptr<receive_signal> signal_channel;
 		std::array<unsigned char, proto::E2E_KEYS_RAW_L> public_key{};
