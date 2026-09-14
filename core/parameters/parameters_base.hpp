@@ -149,12 +149,23 @@ namespace mydak::args {
     struct parameter<0> : parameter_base_arithmetic<int8_t> {
         using parameter_base_arithmetic::parameter_base_arithmetic;
     };
+    parameter(
+        int8_t min,
+        int8_t max,
+        const int8_t& value
+    ) -> parameter<0>;
 
     // Basic string - 1
     template<>
     struct parameter<1> : parameter_base_string {
         using parameter_base_string::parameter_base_string;
     };
+    parameter(
+        uint32_t min,
+        uint32_t max,
+        std::string_view value
+    ) -> parameter<1>;
+
 
     // IP - 2
     template<>
@@ -175,6 +186,7 @@ namespace mydak::args {
             }
         }
     };
+    parameter(std::string_view hostname) -> parameter<2>;
     constexpr std::size_t parameters_variant_count = 3;
 
     #pragma endregion

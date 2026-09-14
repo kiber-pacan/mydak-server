@@ -24,17 +24,35 @@ namespace mydak::args {
     }
 
     #pragma region Utils
+    // Helper method for easier understanding of things
+    template <std::size_t Index, std::size_t Option_String_Size, typename... Args>
+    struct raw_parameter {
+        constexpr raw_parameter(
+            std::integral_constant<std::size_t, Index> type_index,
+            tools::static_string<Option_String_Size> option, std::tuple<Args...> args
+        ) : type_index(type_index), option(option), args(args) {}
+
+        std::integral_constant<std::size_t, Index> type_index;
+        tools::static_string<Option_String_Size> option;
+        std::tuple<Args...> args;
+    };
+    template <std::size_t N, std::size_t Index, typename... Args>
+    raw_parameter(
+        tools::static_string<N> option,
+        std::tuple<Args...> args,
+        std::integral_constant<std::size_t, Index> type_index
+        ) -> raw_parameter<N, Index, Args...>;
+
     // IS_VALID_PAIR START
     template <typename... Args>
-    struct is_valid_pair : std::false_type {};
+    struct is_valid_raw_parameter : std::false_type {};
 
-    template <std::size_t N, std::size_t N1, typename... Args>
-    struct is_valid_pair<std::pair<std::integral_constant<std::size_t, N>, std::pair<tools::static_string<N1>, std::tuple<Args...>>>>
+    template <std::size_t Index, std::size_t Option_String_Size, typename... Args>
+    struct is_valid_raw_parameter<raw_parameter<Index, Option_String_Size, Args...>>
         : std::true_type {};
     // IS_VALID_PAIR END
-
-    void help();
     #pragma endregion
+
 
 
     #pragma region Variants
@@ -54,6 +72,8 @@ namespace mydak::args {
 
 
     #pragma region Make parameters
+
+
     /**
      * @brief Helper function for cleaner syntax of the 'make_parameters' function.
      *
@@ -63,12 +83,32 @@ namespace mydak::args {
      *
      * @param args Parameters for the initialization of parameter<N>.
      *
-     * @return A pair containing integral_constant index and the tuple of arguments.
+     * @return A pair containing integral_constant index and the pair with the Option and the tuple of arguments.
      */
-    template <tools::static_string Option, std::size_t N, typename... T>
+    template <tools::static_string Option, std::size_t N, typename... Args>
     requires (N < parameters_variant_count)
-    constexpr auto make_parameter(T... args) {
-        return std::make_pair(std::integral_constant<std::size_t, N>{}, std::make_pair(Option, std::make_tuple(args...)));
+    constexpr auto make_parameter(Args... args) {
+        return raw_parameter(std::integral_constant<std::size_t, N>{}, Option, std::make_tuple(args...));
+    }
+
+    template <typename... Args, std::size_t... Indices>
+    constexpr auto make_from_indices(
+        const std::tuple<Args...>& tuple,
+        std::index_sequence<Indices...>
+    ) {
+        return parameter(std::get<Indices>(tuple)...);
+    }
+
+    template <typename... Args>
+    constexpr auto make_from_tuple(
+        const std::tuple<Args...>& tuple
+    ) {
+        return make_from_indices(tuple, std::make_index_sequence<sizeof...(Args)>());
+    }
+
+    template <typename Raw_Paramater>
+    void test(Raw_Paramater p) {
+        make_from_tuple(p.args);
     }
 
     /**
@@ -78,14 +118,15 @@ namespace mydak::args {
      * also as a bonus it provides std::variant indices corresponding to the parameters.
      *
      *
-     * @param pairs
+     * @param raw_parameters
      * std::pair<
      *     std::integral_constant<
      *         std::size_t, {Parameter type index}
      *     >,
-     *     std::tuple<
-     *         std::pair <
-     *             {Command name (static_string)}
+     *
+     *     std::pair <
+     *         {Option name (static_string)},
+     *         std::tuple<
      *             {Parameters for initialization of the corresponding parameter}
      *         >
      *     >
@@ -101,23 +142,26 @@ namespace mydak::args {
      *       constexpr auto [parameters, type_indices] = make_parameters(...);
      *       @endcode
      */
-    template <typename... Pairs>
-    constexpr auto make_parameters(Pairs&&... pairs)
-    requires (!std::is_lvalue_reference_v<Pairs> && ...) // All pairs should be rvalues
+    template <typename... Raw_Parameters>
+    constexpr auto make_parameters(Raw_Parameters&&... raw_parameters)
+    requires (!std::is_lvalue_reference_v<Raw_Parameters> && ...) // All pairs should be rvalues
     {
-        static_assert((is_valid_pair<Pairs>::value && ...),
+        static_assert((is_valid_raw_parameter<Raw_Parameters>::value && ...),
             "Provided type is not std::pair<std::integral_constant<std::size_t, N>, std::tuple<Args...>>!");
 
         // Creating new type with indices from Pairs
-        using type_indices = std::index_sequence<pairs.first...>;
-        constexpr type_indices type_indices_obj{};
+        using type_indices = std::index_sequence<raw_parameters.type_index...>;
+        constexpr type_indices type_index{}; // e.g 0 | 1 | 2
 
-        auto parameters = std::array<parameter_variants, sizeof...(pairs)>{std::make_from_tuple<parameter<pairs.first>>(pairs.second.second)...};
-        auto options = std::make_tuple(pairs.second.first...);
+        auto parameters = std::array<parameter_variants, sizeof...(raw_parameters)>{
+           parameter_variants(make_from_tuple(raw_parameters.args))...
+        };
+        parameter_variants(make_from_tuple(raw_parameters...[0].args));
+        auto options = std::make_tuple(raw_parameters.option...);
 
 
         // returning new array and empty type_indices object
-        return std::make_tuple(parameters, options, type_indices_obj);
+        return std::make_tuple(parameters, options, type_index);
     }
     #pragma endregion
 
@@ -146,6 +190,8 @@ namespace mydak::args {
     [[nodiscard]] consteval auto get_options_tuple() {return options_tuple;}
     [[nodiscard]] consteval auto get_type_sequence() {return type_sequence;}
     #pragma endregion
+
+    void help();
 }
 
 #endif //MYDAK_BACKEND_PARAMS_H
