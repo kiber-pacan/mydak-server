@@ -14,6 +14,7 @@
 #include "optional_ref.hpp"
 #include "slot.hpp"
 #include "client.hpp"
+#include "codes.hpp"
 #include "database.hpp"
 #include "indices.hpp"
 #include "slot_vector.hpp"
@@ -55,7 +56,7 @@ namespace mydak {
 		);
 
 		// Returns 0 if no client, 1 if wrong generation, 2 if failed to send signal, 3 if message sent
-		[[nodiscard]] asio::awaitable<uint8_t> add_message_to_queue(
+		[[nodiscard]] asio::awaitable<send_codes> add_message_to_queue(
 			size_t recipient_index,
 			size_t generation,
 			const std::vector<char>& message

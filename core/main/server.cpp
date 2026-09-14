@@ -31,7 +31,7 @@ void mydak::server::start_accepting_connections() {
 
 	// Wait until server receives connection
 	acceptor.async_accept(
-		*new_connection->getSocket(),
+		*new_connection->socket,
 		std::bind(
 			&server::handle_connection,
 			this,
@@ -53,7 +53,7 @@ void mydak::server::handle_connection(const std::shared_ptr<connection>& new_con
 
 
 
-asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
+asio::awaitable<mydak::send_codes> mydak::server::add_message_to_queue(
 	const std::size_t recipient_index,
 	const std::size_t generation,
 	const std::vector<char>& message
@@ -64,11 +64,11 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 		auto& slot = clients_slot_vector[recipient_index];
 		if (slot.empty()) {
 			logger::log_debug_error(NO_SLOT_VALUE);
-			co_return codes::NO_CLIENT;
+			co_return send_codes::NO_CLIENT;
 		}
 		if (slot.get_slot_generation() != generation) {
 			logger::log_debug_error(WRONG_GENERATION);
-			co_return codes::EXPIRED_CLIENT;
+			co_return send_codes::EXPIRED_CLIENT;
 		}
 
 		client& client = slot.get_slot_value();
@@ -86,12 +86,12 @@ asio::awaitable<uint8_t> mydak::server::add_message_to_queue(
 
 		if (error_code) {
 			logger::log_func_debug_error(error_code.message());
-			co_return codes::EXCEPTION;
+			co_return send_codes::EXCEPTION;
 		}
-		co_return codes::SUCCESS;
+		co_return send_codes::SUCCESS;
 	} catch (const std::exception& e) {
 		logger::log_error(e.what());
-		co_return codes::EXCEPTION;
+		co_return send_codes::EXCEPTION;
 	}
 }
 
@@ -202,9 +202,9 @@ asio::awaitable<void> mydak::server::send_delayed_messages(
 	db_indices.reserve(messages.size());
 
 	for (const auto& message : messages) {
-		const std::uint8_t code = co_await add_message_to_queue(recipient_index, generation, message.data);
+		const auto code = co_await add_message_to_queue(recipient_index, generation, message.data);
 
-		if (code == codes::SUCCESS) db_indices.push_back(message.db_index);
+		if (code == send_codes::SUCCESS) db_indices.push_back(message.db_index);
 		else break;
 	}
 
