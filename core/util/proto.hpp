@@ -11,6 +11,9 @@ namespace mydak {
 		
 		static constexpr char GREETINGS_PREFIX = 0x67;
 		static constexpr char GREETINGS_PREFIX_L = 1;
+
+		static constexpr std::size_t MIN_MESSAGE_SIZE = 1;
+		static constexpr std::size_t MAX_MESSAGE_SIZE = 1024;
 	};
 }
 #endif  // MYDAK_BACKEND_CORE_PROTO_HPP
