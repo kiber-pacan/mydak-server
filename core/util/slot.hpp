@@ -18,7 +18,7 @@ namespace mydak {
 	struct slot {
 		explicit slot(T object) : object(object), generation(1) {}
 		~slot() = default;
-		
+
 		void clear() {
 			object.reset();
 		}
