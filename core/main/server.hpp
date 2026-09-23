@@ -87,17 +87,8 @@ namespace mydak {
 
 		slot_vector<client> clients_slot_vector{};
 
-		struct array_hasher {
-			template <std::size_t N>
-			std::size_t operator()(const std::array<unsigned char, N> array) const noexcept {
-				std::size_t seed = 0;
-				for (const auto c : array) {
-					seed ^= std::hash<unsigned char>{}(c) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-				}
-				return seed;
-			}
-		};
-		std::unordered_map<const std::array<unsigned char, proto::E2E_KEYS_RAW_L>, client_index, array_hasher> client_indices{};
+
+		std::unordered_map<const std::array<unsigned char, proto::E2E_KEYS_RAW_L>, client_index, tools::char_array_hasher> client_indices{};
 
 		asio::io_context& io;
 		asio::ip::tcp::acceptor acceptor;
