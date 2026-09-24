@@ -255,24 +255,22 @@ namespace mydak::tools {
     #pragma endregion
 
 
+
     struct char_array_hasher {
         template <std::size_t N, typename T>
-        std::uint64_t operator() (const std::array<T, N> array) const noexcept
+        std::uint64_t operator() (const std::array<T, N>& array) const noexcept
         requires std::same_as<T, char> || std::same_as<T, unsigned char> || std::same_as<T, signed char>
         {
-            return internal_hash(reinterpret_cast<char>(array.data()), std::size(array));
+            return internal_hash(reinterpret_cast<const char*>(array.data()), std::size(array));
         }
 
         private:
-        static std::uint64_t internal_hash (const char* data, const std::size_t size) {
-            uint64_t hash = 0;
-            auto golden_ration =
-                static_cast<decltype(hash)>(std::pow(std::numeric_limits<decltype(hash)>::digits, 2))
-                *
-                static_cast<decltype(hash)>(((std::sqrt(5) - 1) / 5));
+        static std::uint64_t internal_hash(const char* data, const std::size_t size) {
+            std::uint64_t hash = 0;
+            constexpr auto golden_ration = 0x9e3779b97f4a7c15ull;
 
             for (std::size_t i = 0; i < size; ++i) {
-                hash ^= std::hash<char>{}(*(data + i)) + (hash << 6) + (hash >> 2);
+                hash ^= std::hash<char>{}(*(data + i)) + golden_ration + (hash << 6) + (hash >> 2);
             }
 
             return hash;
