@@ -255,7 +255,6 @@ namespace mydak::tools {
     #pragma endregion
 
 
-
     struct char_array_hasher {
         template <std::size_t N, typename T>
         std::uint64_t operator() (const std::array<T, N>& array) const noexcept
@@ -264,7 +263,7 @@ namespace mydak::tools {
             return internal_hash(reinterpret_cast<const char*>(array.data()), std::size(array));
         }
 
-        private:
+    private:
         static std::uint64_t internal_hash(const char* data, const std::size_t size) {
             std::uint64_t hash = 0;
             constexpr auto golden_ration = 0x9e3779b97f4a7c15ull;

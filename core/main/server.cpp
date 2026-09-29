@@ -102,7 +102,7 @@ asio::awaitable<mydak::client_index> mydak::server::add_client(
 	const std::shared_ptr<asio::ip::tcp::socket>& socket,
 	const std::shared_ptr<receive_signal>& signal_channel
 ) {
-	auto it = client_indices.find(public_key);
+	const auto it = client_indices.find(public_key);
 
 	// If client with that public key is already registered
 	if (it != client_indices.end()) co_return client_index::empty();
