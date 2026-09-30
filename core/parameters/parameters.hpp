@@ -168,7 +168,7 @@ namespace mydak::args {
 
     #pragma region Setup
     static constexpr auto tuple_boy = make_parameters(
-        make_parameter<"--db-hostname", details::TYPE_IP>("localhost"),
+        make_parameter<"--db-hostname", details::TYPE_IP>("127.0.0.1"),
         make_parameter<"--db-username", details::TYPE_STRING>(4, 64, "username"),
         make_parameter<"--db-password", details::TYPE_STRING>(4, 64, "password")
     );
