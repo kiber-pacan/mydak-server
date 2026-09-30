@@ -142,7 +142,11 @@ mydak::client_index mydak::server::get_client_index(const std::array<unsigned ch
 
 	if (it == client_indices.end()) {
 		logger::log_debug(NO_ONLINE_CLIENT);
-		return {client_index::invalid_index, client_index::invalid_index, db.get_db_index(public_key)};
+		std::uint64_t db_index = coh::future(db.get_db_index(public_key)).get();
+		/* coh::future(
+			[&]() -> asio::awaitable<std::uint64_t> { co_return co_await db.get_db_index(public_key); }
+		).get(); */
+		return {client_index::invalid_index, client_index::invalid_index, db_index};
 	}
 
 
