@@ -4,6 +4,7 @@
 
 #include "database.hpp"
 
+#include "coh.hpp"
 
 
 mydak::database::database(asio::io_context& io, std::string_view hostname, std::string_view username, std::string_view password) : io(io), connection(io) {
@@ -20,9 +21,12 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
         // Connect to the server
         connection.connect(params);
 
+
         // Create database and then use it
-        connection.execute("CREATE DATABASE IF NOT EXISTS mydak_database;", result);
-        connection.execute("USE mydak_database;", result);
+        std::cout << "1" << std::endl;
+        execute("CREATE DATABASE IF NOT EXISTS mydak_database;", result);
+        std::cout << "1" << std::endl;
+        execute("USE mydak_database;", result);
 
         auto users_request =
             mysql::with_params(
@@ -34,7 +38,7 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
                 ");",
                 proto::E2E_KEYS_RAW_L
             );
-        connection.execute(users_request, result);
+        execute(users_request, result);
 
         auto messages_request =
             mysql::with_params(
@@ -49,7 +53,7 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
                     "FOREIGN KEY (user_id) REFERENCES mydak_users(id) ON DELETE CASCADE"
                 ");"
             );
-        connection.execute(messages_request, result);
+        execute(messages_request, result);
     } catch (const std::exception& e) {
         logger::log_func_debug_error(e.what());
     }
@@ -63,26 +67,24 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsign
         mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
 
 
-        co_await connection.async_execute(
+        co_await async_execute(
             mysql::with_params(
                 "INSERT IGNORE INTO mydak_users (public_key) VALUES ({})",
                 public_key_blob
             ),
-            result,
-            asio::use_awaitable
+            result
         );
 
 
         if (result.affected_rows() > 0) {
             co_return result.last_insert_id();
         } else {
-            co_await connection.async_execute(
+            co_await async_execute(
                 mysql::with_params(
                     "SELECT id FROM mydak_users WHERE public_key = {}",
                     public_key_blob
                 ),
-                result,
-                asio::use_awaitable
+                result
             );
             co_return result.rows().at(0).at(0).as_uint64();
         }
@@ -105,13 +107,12 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             message_blob
         );
 
-        co_await connection.async_execute(
+        co_await async_execute(
             request,
-            result,
-            asio::use_awaitable
+            result
         );
 
-        /*co_await connection.async_execute(
+        /*co_await async_execute(
             "SELECT id, user_id, data FROM mydak_messages;",
             result,
             asio::use_awaitable
@@ -136,14 +137,13 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
 asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_messages(std::uint64_t db_index) {
     mysql::results result;
     try {
-        co_await connection.async_execute(
+        co_await async_execute(
             mysql::with_params(
                 // Getting messages by index with ascending order
                 "SELECT data, id FROM mydak_messages WHERE user_id = {} ORDER BY id ASC;",
                 db_index
             ),
-            result,
-            asio::use_awaitable
+            result
         );
 
         std::vector<db_message> messages{};
@@ -166,12 +166,12 @@ asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_mes
     co_return std::vector<db_message>{};
 }
 
-std::uint64_t mydak::database::get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
+asio::awaitable<std::uint64_t> mydak::database::get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
     try {
         mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
 
         mysql::results result;
-        connection.execute(
+        execute(
             mysql::with_params(
                 "SELECT id FROM mydak_users WHERE public_key = {}",
                 public_key_blob
@@ -179,28 +179,69 @@ std::uint64_t mydak::database::get_db_index(const std::array<unsigned char, prot
             result
         );
 
-        return result.rows().at(0).at(0).as_uint64();
+        co_return result.rows().at(0).at(0).as_uint64();
     } catch (const std::exception& e) {
         logger::log_func_debug_error(e.what());
     }
-    return std::uint64_t{};
+    co_return std::uint64_t{};
 }
 
 asio::awaitable<void> mydak::database::delete_delayed_messages(const std::vector<std::uint64_t> db_indices) {
     if (db_indices.empty()) co_return;
     try {
         mysql::results result;
-        co_await connection.async_execute(
+        co_await async_execute(
             mysql::with_params(
                 "DELETE from mydak_messages WHERE id IN ({})",
                 mysql::sequence(db_indices, [](const std::uint64_t& id, mysql::format_context_base& ctx) {
                     ctx.append_value(id);
                 })
             ),
-            result,
-            asio::use_awaitable
+            result
         );
     } catch (const std::exception& e) {
         logger::log_func_debug_error(e.what());
     }
+}
+
+template <BOOST_MYSQL_EXECUTION_REQUEST T>
+asio::awaitable<void> mydak::database::async_execute(
+    const T request,
+    mysql::results& result
+) {
+    // Skip waiting for the first iteration
+    // for launching pseudo loop of requests
+    if (first_request) {
+        // Wait until signal
+        std::cerr << "first" << std::endl;
+        co_await add_request().async_receive();
+    }
+    else {
+        first_request = false;
+    }
+
+    // Send request to the mariadb
+    co_await async_execute(
+        request,
+        result
+    );
+
+    // Pop current signal
+    lock_channels.pop_front();
+
+    // Sens signal to the next channel
+    boost::system::error_code ec;
+    co_await lock_channels.back().async_send(ec);
+}
+
+template <BOOST_MYSQL_EXECUTION_REQUEST T>
+void mydak::database::execute(
+    const T request,
+    mysql::results& result
+) {
+    coh::future(async_execute(request, result)).get();
+}
+
+mydak::database::lock_channel& mydak::database::add_request() {
+    return lock_channels.emplace_back(io.get_executor());
 }
