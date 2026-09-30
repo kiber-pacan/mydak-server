@@ -16,7 +16,7 @@ bool mydak::args::is_a_number(const std::string_view text) {
 
 bool mydak::args::is_an_ip(std::string_view raw_ip) {
     if (raw_ip == "localhost") {
-        logger::log_debug("localhost is discouraged from using!");
+        logger::log("localhost is discouraged from using! (untraceable problems may arise)");
         return true;
     }
     boost::system::error_code error;
