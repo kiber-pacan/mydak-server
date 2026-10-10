@@ -120,7 +120,7 @@ asio::awaitable<void> mydak::connection::start() {
 			// Evil goto
 		    add_message_to_queue:
 
-			const client_index recipient_index = server->get_client_index(recipient);
+			const client_index recipient_index = co_await server->get_client_index(recipient);
 
 			// If no client with that public key is currently online
 			// we add the queued message to the mariadb database

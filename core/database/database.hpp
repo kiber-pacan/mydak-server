@@ -35,8 +35,8 @@ namespace mydak {
         std::size_t db_index{};
     };
 
-    struct database {
-        using lock_channel = asio::experimental::channel<void(boost::system::error_code)>;
+    struct database : public std::enable_shared_from_this<database> {
+        using channel = asio::experimental::channel<void(boost::system::error_code)>;
 
         explicit database(asio::io_context& io, std::string_view hostname, std::string_view username, std::string_view password);
 
@@ -50,25 +50,27 @@ namespace mydak {
 
         asio::awaitable<void> delete_delayed_messages(std::vector<std::uint64_t> db_indices);
 
-        template <BOOST_MYSQL_EXECUTION_REQUEST T>
+        asio::awaitable<void> wait_until_non_empty();
+
         asio::awaitable<void> async_execute(
-            T request,
+            std::string request,
             mysql::results& result
         );
 
-        template <BOOST_MYSQL_EXECUTION_REQUEST T>
-        void execute(
-            T request,
+        std::tuple<channel, std::string, mysql::results&>&
+        add_request(
+            std::string_view request,
             mysql::results& result
         );
 
-        lock_channel& add_request();
+        asio::awaitable<void> async_execute_loop();
     private:
         asio::io_context& io;
         mysql::any_connection connection;
 
         bool first_request = true;
-        std::deque<lock_channel> lock_channels;
+        std::deque<std::tuple<channel, std::string, mysql::results&>> lock_channels;
+        channel request_add_channel;
     };
 }
 

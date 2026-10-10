@@ -62,7 +62,7 @@ namespace mydak {
 			const std::vector<char>& message
 		);
 
-		client_index get_client_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
+		asio::awaitable<client_index> get_client_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
 
 
 		asio::awaitable<std::uint64_t> add_client_to_db(

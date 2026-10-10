@@ -110,6 +110,8 @@ asio::awaitable<mydak::client_index> mydak::server::add_client(
 	// Add that boy to the db
 	const std::uint64_t db_index = co_await add_client_to_db(public_key);
 
+	logger::log_func_debug("DQDW");
+
 	// Creating new client entry in slot vector and getting its index
 	client_index indices = clients_slot_vector.emplace_back(socket, signal_channel);
 	indices.db_index = db_index;
@@ -136,27 +138,24 @@ void mydak::server::remove_client(const size_t index, const std::array<unsigned 
 	client_indices.erase(public_key);
 }
 
-mydak::client_index mydak::server::get_client_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L> &public_key) {
+asio::awaitable<mydak::client_index> mydak::server::get_client_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L> &public_key) {
 	auto it = client_indices.find(public_key);
 
 
 	if (it == client_indices.end()) {
 		logger::log_debug(NO_ONLINE_CLIENT);
-		std::uint64_t db_index = coh::future(db.get_db_index(public_key)).get();
-		/* coh::future(
-			[&]() -> asio::awaitable<std::uint64_t> { co_return co_await db.get_db_index(public_key); }
-		).get(); */
-		return {client_index::invalid_index, client_index::invalid_index, db_index};
+		std::uint64_t db_index = co_await db.get_db_index(public_key);
+		co_return client_index(client_index::invalid_index, client_index::invalid_index, db_index);
 	}
 
 
 	auto& slot = clients_slot_vector[it->second.index];
 	if (slot.empty()) {
 		logger::log_debug_error(NO_SLOT_VALUE);
-		return client_index::empty();
+		co_return client_index::empty();
 	}
 	
-	return {it->second.index, slot.get_slot_generation(), it->second.db_index};
+	co_return client_index(it->second.index, slot.get_slot_generation(), it->second.db_index);
 }
 
 #pragma region Database
@@ -176,7 +175,7 @@ asio::awaitable<std::uint64_t> mydak::server::add_client_to_db(
 }
 
 
-
+#pragma region Detached message adding
 void mydak::server::add_message_to_db(
 	std::uint64_t index,
 	const std::vector<char>& message
@@ -192,7 +191,7 @@ asio::awaitable<void> mydak::server::add_message_to_db_internal(
 ) {
 	co_await db.add_message(index, message);
 }
-
+#pragma endregion
 
 asio::awaitable<void> mydak::server::send_delayed_messages(
 	const std::size_t recipient_index,
