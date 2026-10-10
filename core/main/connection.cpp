@@ -30,7 +30,7 @@ constexpr std::string_view CONNECTION_ENDED =
 
 
 asio::awaitable<void> mydak::connection::start() {
-	// Voodoo type shi to keep coroutine alive after it's poiner death
+	// Voodoo type shi to keep coroutine alive after it's pointer death
 	auto self = shared_from_this();
 
 	signal_channel = std::make_shared<receive_signal>(socket->get_executor());
