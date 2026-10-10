@@ -27,9 +27,8 @@ namespace asio = boost::asio;
 namespace mydak {
     struct db_message {
         db_message() = default;
-        db_message(const std::vector<char>& data, std::size_t db_index)
+        db_message(const std::vector<char>& data, const std::size_t db_index)
         : data(data), db_index(db_index) {}
-
 
         std::vector<char> data{};
         std::size_t db_index{};
@@ -38,28 +37,48 @@ namespace mydak {
     struct database : public std::enable_shared_from_this<database> {
         using channel = asio::experimental::channel<void(boost::system::error_code)>;
 
+        #pragma region Initialization
         explicit database(asio::io_context& io);
         // Must be called bcs of the limitations of enable_shared_from_this
         void start(std::string_view hostname, std::string_view username, std::string_view password);
+        #pragma endregion
 
+        #pragma region Add
         asio::awaitable<std::uint64_t> add_user(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
 
         asio::awaitable<void> add_message(std::uint64_t index, const std::vector<char>& message);
+        #pragma endregion
 
+        #pragma region Delayed
         asio::awaitable<std::vector<db_message>> get_delayed_messages(std::uint64_t db_index);
 
-        asio::awaitable<std::uint64_t> get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
-
         asio::awaitable<void> delete_delayed_messages(std::vector<std::uint64_t> db_indices);
+        #pragma endregion
 
+        #pragma region Helper
+        asio::awaitable<std::uint64_t> get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
+        #pragma endregion
+
+        #pragma region Async queue
+        /**
+         * Helper method for async wait until we have something in the deque
+         */
         asio::awaitable<void> wait_until_non_empty();
 
-        asio::awaitable<void> async_execute_queued(
+        /**
+         * Helper method for calling requests
+         * that send to the mariadb
+         */
+        auto& add_request(
             std::string_view request,
             mysql::results& result
         );
 
-        auto& add_request(
+        /**
+         * Helper method for calling requests
+         * that send to the mariadb
+         */
+        asio::awaitable<void> async_execute_queued(
             std::string_view request,
             mysql::results& result
         );
@@ -70,8 +89,9 @@ namespace mydak {
          * and we cant have that, so we implemented
          * loop that executes requests and sends
          * signal back to the caller of async_execute() func
-        **/
+         */
         asio::awaitable<void> async_execute_queued_loop();
+        #pragma endregion
     private:
         asio::io_context& io;
         mysql::any_connection connection;

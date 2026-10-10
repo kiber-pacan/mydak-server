@@ -6,7 +6,7 @@
 
 #include "coh.hpp"
 
-
+#pragma region Initialization
 mydak::database::database(asio::io_context& io)
     : io(io), connection(io),
       // Setting capacity to zero so we won't get any expired signals
@@ -67,11 +67,10 @@ void mydak::database::start(std::string_view hostname, std::string_view username
         logger::log_func_debug_error(e.what());
     }
 }
+#pragma endregion
 
-
-
+#pragma region Add
 asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
-    logger::log_func_debug("");
     try {
         mysql::results result;
         mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
@@ -107,7 +106,6 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsign
 }
 
 asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const std::vector<char>& message) {
-    logger::log_func_debug("");
     try {
         const auto raw_data = reinterpret_cast<const unsigned char*>(message.data());
         mysql::blob_view message_blob(raw_data, message.size());
@@ -145,11 +143,10 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
 
     co_return;
 }
+#pragma endregion
 
-
-
+#pragma region Delayed
 asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_messages(std::uint64_t db_index) {
-    logger::log_func_debug("");
     mysql::results result;
     try {
         co_await async_execute_queued(
@@ -182,29 +179,7 @@ asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_mes
     co_return std::vector<db_message>{};
 }
 
-asio::awaitable<std::uint64_t> mydak::database::get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
-    logger::log_func_debug("");
-    try {
-        mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
-
-        mysql::results result;
-        connection.execute(
-            mysql::with_params(
-                "SELECT id FROM mydak_users WHERE public_key = {}",
-                public_key_blob
-            ),
-            result
-        );
-
-        co_return result.rows().at(0).at(0).as_uint64();
-    } catch (const std::exception& e) {
-        logger::log_func_debug_error(e.what());
-    }
-    co_return std::uint64_t{};
-}
-
 asio::awaitable<void> mydak::database::delete_delayed_messages(const std::vector<std::uint64_t> db_indices) {
-    logger::log_func_debug("");
     if (db_indices.empty()) co_return;
     try {
 
@@ -223,7 +198,34 @@ asio::awaitable<void> mydak::database::delete_delayed_messages(const std::vector
         logger::log_func_debug_error(e.what());
     }
 }
+#pragma endregion
 
+#pragma region Helper
+asio::awaitable<std::uint64_t> mydak::database::get_db_index(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key) {
+    try {
+        mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
+
+        mysql::results result;
+        connection.execute(
+            mysql::with_params(
+                "SELECT id FROM mydak_users WHERE public_key = {}",
+                public_key_blob
+            ),
+            result
+        );
+
+        co_return result.rows().at(0).at(0).as_uint64();
+    } catch (const std::exception& e) {
+        logger::log_func_debug_error(e.what());
+    }
+    co_return std::uint64_t{};
+}
+#pragma endregion
+
+#pragma region Async queue
+/**
+ * Helper method for async wait until we have something in the deque
+ */
 asio::awaitable<void> mydak::database::wait_until_non_empty() {
     if (lock_channels.empty()) {
         co_await request_add_channel.async_receive();
@@ -231,6 +233,9 @@ asio::awaitable<void> mydak::database::wait_until_non_empty() {
     co_return;
 }
 
+/**
+ * Helper method for adding request to the channel and pinging loop
+ */
 auto& mydak::database::add_request(
     std::string_view request,
     mysql::results& result
@@ -267,7 +272,7 @@ asio::awaitable<void> mydak::database::async_execute_queued(
  * and we cant have that, so we implemented
  * loop that executes requests and sends
  * signal back to the caller of async_execute() func
-**/
+ */
 asio::awaitable<void> mydak::database::async_execute_queued_loop() {
     try {
         for (;;) {
@@ -291,3 +296,4 @@ asio::awaitable<void> mydak::database::async_execute_queued_loop() {
         logger::log_error(e.what());
     }
 }
+#pragma endregion
