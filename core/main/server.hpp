@@ -33,8 +33,10 @@ namespace mydak {
 		io(io),
 		acceptor(io, asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 8888)),
 		parameters(argc, argv),
-		db(io, parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">())
-		{}
+		db(io)
+		{
+			db.start(parameters.get<"--db-hostname">(), parameters.get<"--db-username">(), parameters.get<"--db-password">());
+		}
 
 
 		void start_accepting_connections();
