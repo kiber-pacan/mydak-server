@@ -38,7 +38,9 @@ namespace mydak {
     struct database : public std::enable_shared_from_this<database> {
         using channel = asio::experimental::channel<void(boost::system::error_code)>;
 
-        explicit database(asio::io_context& io, std::string_view hostname, std::string_view username, std::string_view password);
+        explicit database(asio::io_context& io);
+        // Must be called bcs of the limitations of enable_shared_from_this
+        void start(std::string_view hostname, std::string_view username, std::string_view password);
 
         asio::awaitable<std::uint64_t> add_user(const std::array<unsigned char, proto::E2E_KEYS_RAW_L>& public_key);
 
@@ -52,18 +54,24 @@ namespace mydak {
 
         asio::awaitable<void> wait_until_non_empty();
 
-        asio::awaitable<void> async_execute(
-            std::string request,
-            mysql::results& result
-        );
-
-        std::tuple<channel, std::string, mysql::results&>&
-        add_request(
+        asio::awaitable<void> async_execute_queued(
             std::string_view request,
             mysql::results& result
         );
 
-        asio::awaitable<void> async_execute_loop();
+        auto& add_request(
+            std::string_view request,
+            mysql::results& result
+        );
+
+        /** We have separate loop bcs when we
+         * have multiple clients we often
+         * get concurrent async access database
+         * and we cant have that, so we implemented
+         * loop that executes requests and sends
+         * signal back to the caller of async_execute() func
+        **/
+        asio::awaitable<void> async_execute_queued_loop();
     private:
         asio::io_context& io;
         mysql::any_connection connection;

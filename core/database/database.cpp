@@ -7,8 +7,16 @@
 #include "coh.hpp"
 
 
-mydak::database::database(asio::io_context& io, std::string_view hostname, std::string_view username, std::string_view password) : io(io), connection(io), request_add_channel(io) {
-    try {
+mydak::database::database(asio::io_context& io)
+    : io(io), connection(io),
+      // Setting capacity to zero so we won't get any expired signals
+      // about getting new request when we in a loop already
+      // tackling them
+      request_add_channel(io, 0)
+{}
+
+void mydak::database::start(std::string_view hostname, std::string_view username, std::string_view password) {
+        try {
         // The hostname, username and password to use
         mysql::connect_params params;
         params.server_address.emplace_host_and_port(std::string(hostname));
@@ -52,6 +60,9 @@ mydak::database::database(asio::io_context& io, std::string_view hostname, std::
                 ");"
             );
         connection.execute(messages_request, result);
+
+        // Create detached async execution loop
+        coh::detached(async_execute_queued_loop());
     } catch (const std::exception& e) {
         logger::log_func_debug_error(e.what());
     }
@@ -66,7 +77,7 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsign
         mysql::blob_view public_key_blob(public_key.data(), std::size(public_key));
 
 
-        co_await async_execute(
+        co_await async_execute_queued(
             mysql::format_sql(
                 connection.format_opts().value(),
                 "INSERT IGNORE INTO mydak_users (public_key) VALUES ({})",
@@ -79,7 +90,7 @@ asio::awaitable<std::uint64_t> mydak::database::add_user(const std::array<unsign
         if (result.affected_rows() > 0) {
             co_return result.last_insert_id();
         } else {
-            co_await async_execute(
+            co_await async_execute_queued(
                 mysql::format_sql(
                     connection.format_opts().value(),
                     "SELECT id FROM mydak_users WHERE public_key = {}",
@@ -110,7 +121,7 @@ asio::awaitable<void> mydak::database::add_message(std::uint64_t index, const st
             message_blob
         );
 
-        co_await async_execute(
+        co_await async_execute_queued(
             request,
             result
         );
@@ -141,7 +152,7 @@ asio::awaitable<std::vector<mydak::db_message>> mydak::database::get_delayed_mes
     logger::log_func_debug("");
     mysql::results result;
     try {
-        co_await async_execute(
+        co_await async_execute_queued(
             mysql::format_sql(
                 connection.format_opts().value(),
                 // Getting messages by index with ascending order
@@ -198,7 +209,7 @@ asio::awaitable<void> mydak::database::delete_delayed_messages(const std::vector
     try {
 
         mysql::results result;
-        co_await async_execute(
+        co_await async_execute_queued(
             mysql::format_sql(
                 connection.format_opts().value(),
                 "DELETE from mydak_messages WHERE id IN ({})",
@@ -214,53 +225,68 @@ asio::awaitable<void> mydak::database::delete_delayed_messages(const std::vector
 }
 
 asio::awaitable<void> mydak::database::wait_until_non_empty() {
-    if (lock_channels.empty()) co_await request_add_channel.async_receive();
+    if (lock_channels.empty()) {
+        co_await request_add_channel.async_receive();
+    }
     co_return;
 }
 
-
-std::tuple<mydak::database::channel, std::string, mysql::results&>&
-mydak::database::add_request(
+auto& mydak::database::add_request(
     std::string_view request,
     mysql::results& result
 ) {
     auto& added_channel = lock_channels.emplace_front(channel(io.get_executor()), request, result);
 
+    // Ping our async_execute_queued_loop
     boost::system::error_code ec;
     request_add_channel.try_send(ec);
+
     return added_channel;
 }
 
-asio::awaitable<void> mydak::database::async_execute(
-    std::string request,
+/**
+ * Helper method for calling requests
+ * that send to the mariadb
+ */
+asio::awaitable<void> mydak::database::async_execute_queued(
+    const std::string_view request,
     mysql::results& result
 ) {
-    logger::log_func_debug("GOT REQUEST");
-
-
+    // std::tuple<channel, std::string, mysql::results&>
+    // getting channel and waiting until we get signal that means
+    // we got result
     co_await get<0>(add_request(request, result)).async_receive();
 
     co_return;
 }
 
-asio::awaitable<void> mydak::database::async_execute_loop() {
-    auto self = shared_from_this();
+/**
+ * We have separate loop bcs when we
+ * have multiple clients we often
+ * get concurrent async access database
+ * and we cant have that, so we implemented
+ * loop that executes requests and sends
+ * signal back to the caller of async_execute() func
+**/
+asio::awaitable<void> mydak::database::async_execute_queued_loop() {
     try {
-        co_await wait_until_non_empty();
-        auto& [channel, request, result] = lock_channels.back();
+        for (;;) {
+            co_await wait_until_non_empty();
+            auto& [channel, request, result] = lock_channels.back();
 
-        // Request
-        co_await connection.async_execute(
-            request,
-            result
-        );
+            // Request
+            co_await connection.async_execute(
+                request,
+                result
+            );
 
-        // Signal
-        boost::system::error_code ec;
-        co_await channel.async_send(ec);
+            // Signal
+            boost::system::error_code ec;
+            co_await channel.async_send(ec);
 
-        lock_channels.pop_back();
-
+            // Clear
+            lock_channels.pop_back();
+        }
     } catch (const std::exception& e) {
         logger::log_error(e.what());
     }
