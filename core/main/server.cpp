@@ -110,8 +110,6 @@ asio::awaitable<mydak::client_index> mydak::server::add_client(
 	// Add that boy to the db
 	const std::uint64_t db_index = co_await add_client_to_db(public_key);
 
-	logger::log_func_debug("DQDW");
-
 	// Creating new client entry in slot vector and getting its index
 	client_index indices = clients_slot_vector.emplace_back(socket, signal_channel);
 	indices.db_index = db_index;
