@@ -1,5 +1,7 @@
 # mydak-server
-This is the server for my mydak messenger
+This is the single-threaded server for my mydak messenger.
+basically sends messages from one client to another
+and stores it in db until client is online again.
 
 # Usage
 ```
