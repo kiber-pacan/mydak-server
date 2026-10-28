@@ -1,7 +1,10 @@
 # mydak-server
-This is the single-threaded server for my mydak messenger.
-basically sends messages from one client to another
+This is the single-threaded server for my mydak messenger.<br>
+Basically sends messages from one client to another
 and stores it in db until client is online again.
+
+This project was created mainly to strengthen my c++ skills 
+(e.g. metaprogramming) and general algorithmic skills.
 
 # Usage
 ```
